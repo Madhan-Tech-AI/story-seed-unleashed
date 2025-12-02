@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, User, FileText, CreditCard, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Check, User, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,22 +10,78 @@ import { useToast } from '@/hooks/use-toast';
 const steps = [
   { id: 1, title: 'Personal Info', icon: User },
   { id: 2, title: 'Story Details', icon: FileText },
-  { id: 3, title: 'Payment', icon: CreditCard },
+  { id: 3, title: 'Review & Submit', icon: Check },
 ];
 
 const Register = () => {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [isComplete, setIsComplete] = useState(false);
   const { toast } = useToast();
+  const [personalInfo, setPersonalInfo] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    age: '',
+    city: '',
+  });
+  const [storyDetails, setStoryDetails] = useState<{
+    title: string;
+    category: string;
+    description: string;
+    videoFile: File | null;
+  }>({
+    title: '',
+    category: '',
+    description: '',
+    videoFile: null,
+  });
+
+  const validateStep1 = () => {
+    const { firstName, lastName, email, phone, age, city } = personalInfo;
+    if (!firstName || !lastName || !email || !phone || !age || !city) {
+      toast({
+        title: 'Missing information',
+        description: 'Please fill in all personal information fields before continuing.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    const { title, category, description, videoFile } = storyDetails;
+    if (!title || !category || !description || !videoFile) {
+      toast({
+        title: 'Missing story details',
+        description: 'Please complete all story fields and upload a video before submitting.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    return true;
+  };
 
   const handleNext = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    } else {
+    if (currentStep === 1) {
+      if (!validateStep1()) return;
+      setCurrentStep(2);
+      return;
+    }
+
+    if (currentStep === 2) {
+      if (!validateStep2()) return;
+      setCurrentStep(3);
+      return;
+    }
+
+    if (currentStep === 3) {
+      // Final submission
       setIsComplete(true);
       toast({
         title: 'Registration Successful! 🎉',
-        description: 'Welcome to Story Seed Studio! Check your email for confirmation.',
+        description: 'Your story has been submitted successfully.',
       });
     }
   };
@@ -47,15 +103,16 @@ const Register = () => {
             Registration Complete!
           </h1>
           <p className="text-muted-foreground mb-8">
-            Your registration has been submitted successfully. Check your email for confirmation and next steps.
+            Your registration has been submitted successfully. Check your email for confirmation
+            and next steps.
           </p>
-          <div className="space-y-4">
-            <Link to="/user">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
+            <Link to="/user/dashboard" className="flex-1">
               <Button variant="hero" size="lg" className="w-full">
                 Go to Dashboard
               </Button>
             </Link>
-            <Link to="/">
+            <Link to="/" className="flex-1">
               <Button variant="outline" size="lg" className="w-full">
                 Back to Home
               </Button>
@@ -131,29 +188,76 @@ const Register = () => {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>First Name</Label>
-                    <Input placeholder="Enter first name" />
+                    <Input
+                      placeholder="Enter first name"
+                      value={personalInfo.firstName}
+                      onChange={(e) =>
+                        setPersonalInfo((prev) => ({ ...prev, firstName: e.target.value }))
+                      }
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Last Name</Label>
-                    <Input placeholder="Enter last name" />
+                    <Input
+                      placeholder="Enter last name"
+                      value={personalInfo.lastName}
+                      onChange={(e) =>
+                        setPersonalInfo((prev) => ({ ...prev, lastName: e.target.value }))
+                      }
+                      required
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Email Address</Label>
-                  <Input type="email" placeholder="your@email.com" />
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={personalInfo.email}
+                    onChange={(e) =>
+                      setPersonalInfo((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Phone Number</Label>
-                  <Input type="tel" placeholder="+91 98765 43210" />
+                  <Input
+                    type="tel"
+                    placeholder="+91 98765 43210"
+                    value={personalInfo.phone}
+                    onChange={(e) =>
+                      setPersonalInfo((prev) => ({ ...prev, phone: e.target.value }))
+                    }
+                    required
+                  />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Age</Label>
-                    <Input type="number" placeholder="Enter age" min={5} max={18} />
+                    <Input
+                      type="number"
+                      placeholder="Enter age"
+                      min={5}
+                      max={18}
+                      value={personalInfo.age}
+                      onChange={(e) =>
+                        setPersonalInfo((prev) => ({ ...prev, age: e.target.value }))
+                      }
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>City</Label>
-                    <Input placeholder="Your city" />
+                    <Input
+                      placeholder="Your city"
+                      value={personalInfo.city}
+                      onChange={(e) =>
+                        setPersonalInfo((prev) => ({ ...prev, city: e.target.value }))
+                      }
+                      required
+                    />
                   </div>
                 </div>
               </div>
@@ -166,18 +270,32 @@ const Register = () => {
                 </h2>
                 <div className="space-y-2">
                   <Label>Story Title</Label>
-                  <Input placeholder="Enter your story title" />
+                  <Input
+                    placeholder="Enter your story title"
+                    value={storyDetails.title}
+                    onChange={(e) =>
+                      setStoryDetails((prev) => ({ ...prev, title: e.target.value }))
+                    }
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <select className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground">
-                    <option>Select category</option>
-                    <option>Fantasy</option>
-                    <option>Adventure</option>
-                    <option>Family</option>
-                    <option>Sci-Fi</option>
-                    <option>Humor</option>
-                    <option>Mystery</option>
+                  <select
+                    className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground"
+                    value={storyDetails.category}
+                    onChange={(e) =>
+                      setStoryDetails((prev) => ({ ...prev, category: e.target.value }))
+                    }
+                    required
+                  >
+                    <option value="">Select category</option>
+                    <option value="Fantasy">Fantasy</option>
+                    <option value="Adventure">Adventure</option>
+                    <option value="Family">Family</option>
+                    <option value="Sci-Fi">Sci-Fi</option>
+                    <option value="Humor">Humor</option>
+                    <option value="Mystery">Mystery</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -186,19 +304,40 @@ const Register = () => {
                     className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground resize-none"
                     rows={4}
                     placeholder="Tell us briefly what your story is about..."
+                    value={storyDetails.description}
+                    onChange={(e) =>
+                      setStoryDetails((prev) => ({ ...prev, description: e.target.value }))
+                    }
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Upload Story (Optional)</Label>
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary transition-colors cursor-pointer">
+                  <Label>Upload Story Video (Required)</Label>
+                  <input
+                    id="story-video-input"
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setStoryDetails((prev) => ({ ...prev, videoFile: file }));
+                    }}
+                    required
+                  />
+                  <label
+                    htmlFor="story-video-input"
+                    className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary transition-colors cursor-pointer block"
+                  >
                     <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                     <p className="text-muted-foreground">
-                      Drag & drop your file here, or click to browse
+                      Click to browse and upload your story video (required)
                     </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      PDF, DOC, or DOCX (max 10MB)
-                    </p>
-                  </div>
+                    {storyDetails.videoFile && (
+                      <p className="text-xs text-foreground mt-2">
+                        Selected: {storyDetails.videoFile.name}
+                      </p>
+                    )}
+                  </label>
                 </div>
               </div>
             )}
@@ -206,43 +345,78 @@ const Register = () => {
             {currentStep === 3 && (
               <div className="space-y-6 animate-fade-in">
                 <h2 className="font-display text-2xl font-semibold text-foreground">
-                  Payment Details
+                  Review &amp; Confirm
                 </h2>
-                <div className="bg-muted/50 rounded-xl p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-muted-foreground">Registration Fee</span>
-                    <span className="font-semibold text-foreground">₹299</span>
+                <p className="text-muted-foreground">
+                  Please review your details before submitting your registration.
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Personal Information
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Name</span>
+                        <span className="font-medium text-foreground">
+                          {personalInfo.firstName} {personalInfo.lastName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Email</span>
+                        <span className="font-medium text-foreground">{personalInfo.email}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Phone</span>
+                        <span className="font-medium text-foreground">{personalInfo.phone}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Age</span>
+                        <span className="font-medium text-foreground">{personalInfo.age}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">City</span>
+                        <span className="font-medium text-foreground">{personalInfo.city}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-muted-foreground">Platform Fee</span>
-                    <span className="font-semibold text-foreground">₹50</span>
-                  </div>
-                  <div className="border-t border-border pt-4">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-foreground">Total</span>
-                      <span className="font-bold text-xl text-primary">₹349</span>
+
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Story Details
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Title</span>
+                        <span className="font-medium text-foreground">{storyDetails.title}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Category</span>
+                        <span className="font-medium text-foreground">
+                          {storyDetails.category}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-muted-foreground block">Description</span>
+                        <p className="font-medium text-foreground text-sm bg-muted/40 rounded-lg p-3">
+                          {storyDetails.description}
+                        </p>
+                      </div>
+                      <div className="flex justify-between gap-4 items-center">
+                        <span className="text-muted-foreground">Video</span>
+                        <span className="font-medium text-foreground truncate max-w-[200px]">
+                          {storyDetails.videoFile?.name ?? 'No file selected'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Payment Simulation */}
-                <div className="border border-border rounded-xl p-6 space-y-4">
-                  <h3 className="font-semibold text-foreground">Payment Method</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {['UPI', 'Card', 'Net Banking'].map((method) => (
-                      <button
-                        key={method}
-                        className="p-4 border-2 border-border rounded-xl hover:border-primary transition-colors text-center"
-                      >
-                        <CreditCard className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                        <span className="text-sm text-foreground">{method}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground text-center">
-                    This is a simulated payment. No actual transaction will occur.
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  By clicking <span className="font-semibold">Submit Registration</span>, you
+                  confirm that all details provided are accurate.
+                </p>
               </div>
             )}
 
@@ -258,7 +432,7 @@ const Register = () => {
                 Previous
               </Button>
               <Button variant="hero" onClick={handleNext}>
-                {currentStep === 3 ? 'Complete Registration' : 'Next'}
+                {currentStep === 3 ? 'Submit Registration' : 'Next'}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>

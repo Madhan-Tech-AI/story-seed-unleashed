@@ -17,10 +17,11 @@ import {
   Upload,
   User,
   History,
+  Bell,
+  Compass,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { useState } from 'react';
 
 interface NavItem {
   name: string;
@@ -28,8 +29,15 @@ interface NavItem {
   icon: React.ElementType;
 }
 
+interface DashboardSidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
 const userNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/user/dashboard', icon: LayoutDashboard },
+  { name: 'Explore', path: '/user/dashboard/explore', icon: Compass },
+  { name: 'Voting', path: '/user/dashboard/voting', icon: Vote },
   { name: 'Events', path: '/user/dashboard/events', icon: Calendar },
   { name: 'My Registrations', path: '/user/dashboard/registrations', icon: Trophy },
   { name: 'My Profile', path: '/user/dashboard/profile', icon: User },
@@ -50,12 +58,13 @@ const adminNavItems: NavItem[] = [
   { name: 'Manage Judges', path: '/admin/dashboard/judges', icon: UserCog },
   { name: 'Manage Users', path: '/admin/dashboard/users', icon: Users },
   { name: 'Voting Outcomes', path: '/admin/dashboard/outcomes', icon: BarChart3 },
+  { name: 'Notifications', path: '/admin/dashboard/notifications', icon: Bell },
+  { name: 'Settings', path: '/admin/dashboard/settings', icon: Settings },
 ];
 
-export const DashboardSidebar = () => {
+export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
   const { user, logout, role } = useAuth();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
 
   const navItems =
     role === 'admin' ? adminNavItems : role === 'judge' ? judgeNavItems : userNavItems;
@@ -63,7 +72,7 @@ export const DashboardSidebar = () => {
   const roleColors = {
     user: 'from-primary to-red-dark',
     judge: 'from-secondary to-accent',
-    admin: 'from-charcoal to-foreground',
+  admin: 'from-red to-red-dark',
   };
 
   return (
@@ -156,7 +165,7 @@ export const DashboardSidebar = () => {
 
       {/* Collapse Toggle */}
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={onToggle}
         className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-sidebar-primary text-sidebar-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
       >
         {collapsed ? (

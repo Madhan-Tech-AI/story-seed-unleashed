@@ -23,11 +23,11 @@ const AdminDashboard = () => {
   return (
     <div className="space-y-6 page-enter">
       {/* Welcome */}
-      <div className="bg-charcoal rounded-2xl p-6 text-primary-foreground">
+      <div className="bg-red rounded-2xl p-6 text-white">
         <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">
           Admin Dashboard 🛡️
         </h1>
-        <p className="text-primary-foreground/80">
+        <p className="text-white/80">
           Welcome back, {user?.name}. Here's your platform overview.
         </p>
       </div>
@@ -71,7 +71,10 @@ const AdminDashboard = () => {
       {/* Quick Actions */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Link to="/admin/dashboard/create">
-          <Button variant="hero" className="w-full h-auto py-6 flex-col gap-2">
+          <Button
+            variant="outline"
+            className="w-full h-auto py-6 flex-col gap-2 transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:bg-primary active:text-primary-foreground"
+          >
             <PlusCircle className="w-8 h-8" />
             <span>Create Competition</span>
           </Button>
@@ -89,7 +92,10 @@ const AdminDashboard = () => {
           </Button>
         </Link>
         <Link to="/admin/dashboard/outcomes">
-          <Button variant="gold" className="w-full h-auto py-6 flex-col gap-2">
+          <Button
+            variant="outline"
+            className="w-full h-auto py-6 flex-col gap-2 transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:bg-primary active:text-primary-foreground"
+          >
             <TrendingUp className="w-8 h-8" />
             <span>Voting Outcomes</span>
           </Button>
