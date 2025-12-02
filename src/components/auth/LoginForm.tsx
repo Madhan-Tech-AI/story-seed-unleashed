@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 interface LoginFormProps {
   role: 'user' | 'judge' | 'admin';
@@ -118,9 +117,6 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
             />
             <span className="text-muted-foreground">Remember me</span>
           </label>
-          <a href="#" className="text-primary hover:underline">
-            Forgot password?
-          </a>
         </div>
 
         <Button
@@ -141,18 +137,11 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
         </Button>
       </form>
 
-      {/* Demo credentials */}
-      <div className="p-4 bg-muted rounded-lg text-sm">
-        <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
-        <p className="text-muted-foreground">Email: madhankumar070406@gmail.com</p>
-        <p className="text-muted-foreground">Password: Madhan@2407</p>
-      </div>
-
       {/* Footer */}
       {role === 'user' && (
         <p className="text-center text-muted-foreground">
           Don't have an account?{' '}
-          <Link to="/register" className="text-primary hover:underline font-medium">
+          <Link to="/signup" className="text-primary hover:underline font-medium">
             Sign up
           </Link>
         </p>
