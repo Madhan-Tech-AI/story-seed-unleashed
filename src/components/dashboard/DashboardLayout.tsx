@@ -10,6 +10,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ requiredRole }: DashboardLayoutProps) => {
   const { isAuthenticated, role, loading } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   if (loading) {
     return (
@@ -18,8 +19,6 @@ export const DashboardLayout = ({ requiredRole }: DashboardLayoutProps) => {
       </div>
     );
   }
-  const { isAuthenticated, role } = useAuth();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   if (!isAuthenticated) {
     return <Navigate to={`/${requiredRole}`} replace />;
