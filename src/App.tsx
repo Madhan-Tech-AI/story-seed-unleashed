@@ -12,6 +12,7 @@ import Index from "./pages/Index";
 import About from "./pages/About";
 import Gallery from "./pages/Gallery";
 import Voting from "./pages/Voting";
+import Events from "./pages/Events";
 import Register from "./pages/Register";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/about" element={<About />} />
               <Route path="/gallery" element={<Gallery />} />
+              <Route path="/events" element={<Events />} />
               <Route path="/voting" element={<Voting />} />
               <Route path="/register" element={<Register />} />
               <Route path="/terms" element={<Terms />} />
