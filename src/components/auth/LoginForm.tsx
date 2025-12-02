@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface LoginFormProps {
   role: 'user' | 'judge' | 'admin';
@@ -80,7 +81,11 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="pl-10"
+              className={cn(
+                'pl-10',
+                role === 'judge' &&
+                  'bg-background/70 border-primary/40 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)] focus-visible:ring-primary focus-visible:ring-offset-0',
+              )}
               required
             />
           </div>
@@ -96,7 +101,11 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="pl-10 pr-10"
+              className={cn(
+                'pl-10 pr-10',
+                role === 'judge' &&
+                  'bg-background/70 border-primary/40 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)] focus-visible:ring-primary focus-visible:ring-offset-0',
+              )}
               required
             />
             <button
@@ -117,6 +126,9 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
             />
             <span className="text-muted-foreground">Remember me</span>
           </label>
+          <a href="#" className="text-primary hover:underline">
+            Forgot password?
+          </a>
         </div>
 
         <Button
@@ -137,11 +149,18 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
         </Button>
       </form>
 
+      {/* Demo credentials */}
+      <div className="p-4 bg-muted rounded-lg text-sm">
+        <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
+        <p className="text-muted-foreground">Email: madhankumar070406@gmail.com</p>
+        <p className="text-muted-foreground">Password: Madhan@2407</p>
+      </div>
+
       {/* Footer */}
       {role === 'user' && (
         <p className="text-center text-muted-foreground">
           Don't have an account?{' '}
-          <Link to="/signup" className="text-primary hover:underline font-medium">
+          <Link to="/register" className="text-primary hover:underline font-medium">
             Sign up
           </Link>
         </p>
