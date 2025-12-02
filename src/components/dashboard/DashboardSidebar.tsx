@@ -15,9 +15,7 @@ import {
   Eye,
   UserCog,
   BarChart3,
-  Upload,
   User,
-  History,
   Bell,
   Compass,
   ChevronLeft,
@@ -35,6 +33,7 @@ interface DashboardSidebarProps {
   onToggle: () => void;
 }
 
+// User Navigation with translation support
 const buildUserNavItems = (t: (key: string) => string): NavItem[] => [
   { name: t('dashboard'), path: '/user/dashboard', icon: LayoutDashboard },
   { name: t('explore'), path: '/user/dashboard/explore', icon: Compass },
@@ -77,7 +76,7 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
   const roleColors = {
     user: 'from-primary to-red-dark',
     judge: 'from-secondary to-accent',
-  admin: 'from-red to-red-dark',
+    admin: 'from-red to-red-dark',
   };
 
   return (
@@ -98,6 +97,7 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
           >
             <span className="text-primary-foreground font-display font-bold text-lg">S</span>
           </div>
+
           {!collapsed && (
             <div className="flex flex-col animate-fade-in">
               <span className="font-display font-bold text-sidebar-foreground">Story Seed</span>
@@ -111,6 +111,7 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
+
           return (
             <Link
               key={item.path}
@@ -153,11 +154,7 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
         onClick={onToggle}
         className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-sidebar-primary text-sidebar-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
       >
-        {collapsed ? (
-          <ChevronRight className="w-4 h-4" />
-        ) : (
-          <ChevronLeft className="w-4 h-4" />
-        )}
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
     </aside>
   );
