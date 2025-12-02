@@ -12,7 +12,9 @@ const UserEvents = () => (
   <div className="space-y-6 page-enter">
     <div className="flex justify-between items-center">
       <h1 className="font-display text-2xl font-bold text-foreground">Available Events</h1>
-      <Link to="/register"><Button variant="hero">Register Now</Button></Link>
+      <Link to="/user/dashboard/register">
+        <Button variant="hero">Register Now</Button>
+      </Link>
     </div>
     <div className="grid gap-4">
       {events.map((event) => (

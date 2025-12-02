@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { User, Mail, Phone, MapPin, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 const UserProfile = () => {
   const { user } = useAuth();
@@ -10,10 +10,20 @@ const UserProfile = () => {
       <h1 className="font-display text-2xl font-bold text-foreground">My Profile</h1>
       <div className="bg-card p-6 rounded-2xl border border-border/50">
         <div className="flex items-center gap-4 mb-6">
-          <img src={user?.avatar} alt={user?.name} className="w-20 h-20 rounded-full object-cover border-4 border-primary/20" />
+          <img
+            src={user?.avatar}
+            alt={user?.name}
+            className="w-20 h-20 rounded-full object-cover border-4 border-primary/20"
+          />
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">{user?.name}</h2>
             <p className="text-muted-foreground">{user?.email}</p>
+            {user?.userId && (
+              <p className="text-xs text-muted-foreground mt-1">
+                User ID:{' '}
+                <span className="font-mono font-semibold text-foreground">{user.userId}</span>
+              </p>
+            )}
           </div>
         </div>
         <div className="grid gap-4">

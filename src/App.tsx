@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 
 // Auth pages
 import UserLogin from "./pages/auth/UserLogin";
+import UserSignup from "./pages/auth/UserSignup";
 import JudgeLogin from "./pages/auth/JudgeLogin";
 import AdminLogin from "./pages/auth/AdminLogin";
 
@@ -29,6 +30,8 @@ import UserDashboard from "./pages/dashboard/UserDashboard";
 import UserEvents from "./pages/dashboard/UserEvents";
 import UserRegistrations from "./pages/dashboard/UserRegistrations";
 import UserProfile from "./pages/dashboard/UserProfile";
+import UserExplore from "./pages/dashboard/UserExplore";
+import UserVoting from "./pages/dashboard/UserVoting";
 
 import JudgeDashboard from "./pages/dashboard/JudgeDashboard";
 import JudgeSubmissions from "./pages/dashboard/JudgeSubmissions";
@@ -70,15 +73,19 @@ const App = () => (
 
             {/* Auth routes */}
             <Route path="/user" element={<UserLogin />} />
+            <Route path="/signup" element={<UserSignup />} />
             <Route path="/judge" element={<JudgeLogin />} />
             <Route path="/admin" element={<AdminLogin />} />
 
             {/* User dashboard */}
             <Route path="/user/dashboard" element={<DashboardLayout requiredRole="user" />}>
               <Route index element={<UserDashboard />} />
+              <Route path="explore" element={<UserExplore />} />
+              <Route path="voting" element={<UserVoting />} />
               <Route path="events" element={<UserEvents />} />
               <Route path="registrations" element={<UserRegistrations />} />
               <Route path="profile" element={<UserProfile />} />
+              <Route path="register" element={<Register />} />
             </Route>
 
             {/* Judge dashboard */}
