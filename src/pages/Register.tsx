@@ -23,17 +23,28 @@ const Register = () => {
   const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      toast({
-        title: 'Login Required',
-        description: 'Please log in to register for competitions.',
-        variant: 'destructive',
-      });
-      navigate('/user');
-    }
-  }, [isAuthenticated, loading, navigate, toast]);
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen pt-20 flex items-center justify-center bg-gradient-warm">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated (only after loading is complete)
+  if (!isAuthenticated) {
+    toast({
+      title: 'Login Required',
+      description: 'Please log in to register for competitions.',
+      variant: 'destructive',
+    });
+    navigate('/user');
+    return null;
+  }
 
   // Form data state
   const [formData, setFormData] = useState({
