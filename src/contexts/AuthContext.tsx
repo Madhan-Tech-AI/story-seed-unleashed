@@ -198,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      const redirectUrl = `${window.location.origin}/user/dashboard`;
+      const redirectUrl = `${window.location.origin}/`;
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

@@ -81,7 +81,7 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
           title: 'Login Successful',
           description: `Welcome back! You're now logged in as ${roleLabels[role]}.`,
         });
-        navigate(redirectPath);
+        navigate('/');
       } else {
         toast({
           title: 'Login Failed',
