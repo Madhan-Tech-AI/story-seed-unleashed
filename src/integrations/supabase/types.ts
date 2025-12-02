@@ -38,6 +38,57 @@ export type Database = {
         }
         Relationships: []
       }
+      registrations: {
+        Row: {
+          age: number
+          category: string
+          city: string
+          created_at: string
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          phone: string
+          story_description: string
+          story_title: string
+          updated_at: string
+          user_id: string | null
+          yt_link: string | null
+        }
+        Insert: {
+          age: number
+          category: string
+          city: string
+          created_at?: string
+          email: string
+          first_name: string
+          id?: string
+          last_name: string
+          phone: string
+          story_description: string
+          story_title: string
+          updated_at?: string
+          user_id?: string | null
+          yt_link?: string | null
+        }
+        Update: {
+          age?: number
+          category?: string
+          city?: string
+          created_at?: string
+          email?: string
+          first_name?: string
+          id?: string
+          last_name?: string
+          phone?: string
+          story_description?: string
+          story_title?: string
+          updated_at?: string
+          user_id?: string | null
+          yt_link?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

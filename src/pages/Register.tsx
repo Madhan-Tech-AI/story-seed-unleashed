@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Check, User, FileText, CreditCard, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, User, FileText, CreditCard, ArrowRight, ArrowLeft, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const steps = [
   { id: 1, title: 'Personal Info', icon: User },
@@ -16,17 +18,116 @@ const steps = [
 const Register = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const handleNext = () => {
+  // Form data state
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    age: '',
+    city: '',
+    storyTitle: '',
+    category: '',
+    storyDescription: '',
+  });
+
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setVideoFile(e.target.files[0]);
+    }
+  };
+
+  const handleNext = async () => {
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
+      await handleSubmit();
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please log in to register for competitions.',
+        variant: 'destructive',
+      });
+      navigate('/user');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Save to Supabase (without video)
+      const { error: dbError } = await supabase
+        .from('registrations')
+        .insert({
+          user_id: user.id,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          age: parseInt(formData.age),
+          city: formData.city,
+          story_title: formData.storyTitle,
+          category: formData.category,
+          story_description: formData.storyDescription,
+          yt_link: null, // Leave empty as requested
+        });
+
+      if (dbError) throw dbError;
+
+      // Send to webhook (with video)
+      const webhookFormData = new FormData();
+      webhookFormData.append('firstName', formData.firstName);
+      webhookFormData.append('lastName', formData.lastName);
+      webhookFormData.append('email', formData.email);
+      webhookFormData.append('phone', formData.phone);
+      webhookFormData.append('age', formData.age);
+      webhookFormData.append('city', formData.city);
+      webhookFormData.append('title', formData.storyTitle);
+      webhookFormData.append('category', formData.category);
+      webhookFormData.append('description', formData.storyDescription);
+      
+      if (videoFile) {
+        webhookFormData.append('video', videoFile);
+      }
+
+      const webhookResponse = await fetch('https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload', {
+        method: 'POST',
+        body: webhookFormData,
+      });
+
+      if (!webhookResponse.ok) {
+        console.error('Webhook submission failed');
+      }
+
       setIsComplete(true);
       toast({
         title: 'Registration Successful! 🎉',
-        description: 'Welcome to Story Seed Studio! Check your email for confirmation.',
+        description: 'Welcome to Story Seed Studio! Your submission has been received.',
       });
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: 'Registration Failed',
+        description: 'There was an error submitting your registration. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -131,29 +232,58 @@ const Register = () => {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>First Name</Label>
-                    <Input placeholder="Enter first name" />
+                    <Input 
+                      placeholder="Enter first name" 
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Last Name</Label>
-                    <Input placeholder="Enter last name" />
+                    <Input 
+                      placeholder="Enter last name"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Email Address</Label>
-                  <Input type="email" placeholder="your@email.com" />
+                  <Input 
+                    type="email" 
+                    placeholder="your@email.com"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Phone Number</Label>
-                  <Input type="tel" placeholder="+91 98765 43210" />
+                  <Input 
+                    type="tel" 
+                    placeholder="+91 98765 43210"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                  />
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Age</Label>
-                    <Input type="number" placeholder="Enter age" min={5} max={18} />
+                    <Input 
+                      type="number" 
+                      placeholder="Enter age" 
+                      min={5} 
+                      max={18}
+                      value={formData.age}
+                      onChange={(e) => handleInputChange('age', e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>City</Label>
-                    <Input placeholder="Your city" />
+                    <Input 
+                      placeholder="Your city"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                    />
                   </div>
                 </div>
               </div>
@@ -166,18 +296,26 @@ const Register = () => {
                 </h2>
                 <div className="space-y-2">
                   <Label>Story Title</Label>
-                  <Input placeholder="Enter your story title" />
+                  <Input 
+                    placeholder="Enter your story title"
+                    value={formData.storyTitle}
+                    onChange={(e) => handleInputChange('storyTitle', e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <select className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground">
-                    <option>Select category</option>
-                    <option>Fantasy</option>
-                    <option>Adventure</option>
-                    <option>Family</option>
-                    <option>Sci-Fi</option>
-                    <option>Humor</option>
-                    <option>Mystery</option>
+                  <select 
+                    className="w-full h-10 px-3 rounded-lg border border-input bg-background text-foreground"
+                    value={formData.category}
+                    onChange={(e) => handleInputChange('category', e.target.value)}
+                  >
+                    <option value="">Select category</option>
+                    <option value="Fantasy">Fantasy</option>
+                    <option value="Adventure">Adventure</option>
+                    <option value="Family">Family</option>
+                    <option value="Sci-Fi">Sci-Fi</option>
+                    <option value="Humor">Humor</option>
+                    <option value="Mystery">Mystery</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -186,18 +324,29 @@ const Register = () => {
                     className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground resize-none"
                     rows={4}
                     placeholder="Tell us briefly what your story is about..."
+                    value={formData.storyDescription}
+                    onChange={(e) => handleInputChange('storyDescription', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Upload Story (Optional)</Label>
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary transition-colors cursor-pointer">
-                    <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">
-                      Drag & drop your file here, or click to browse
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      PDF, DOC, or DOCX (max 10MB)
-                    </p>
+                  <Label>Upload Video Story</Label>
+                  <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary transition-colors">
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoUpload}
+                      className="hidden"
+                      id="video-upload"
+                    />
+                    <label htmlFor="video-upload" className="cursor-pointer">
+                      <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">
+                        {videoFile ? videoFile.name : 'Click to upload your video story'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        MP4, MOV, or AVI (max 500MB)
+                      </p>
+                    </label>
                   </div>
                 </div>
               </div>
@@ -257,9 +406,9 @@ const Register = () => {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              <Button variant="hero" onClick={handleNext}>
-                {currentStep === 3 ? 'Complete Registration' : 'Next'}
-                <ArrowRight className="w-4 h-4 ml-2" />
+              <Button variant="hero" onClick={handleNext} disabled={isSubmitting}>
+                {isSubmitting ? 'Submitting...' : currentStep === 3 ? 'Complete Registration' : 'Next'}
+                {!isSubmitting && <ArrowRight className="w-4 h-4 ml-2" />}
               </Button>
             </div>
           </div>

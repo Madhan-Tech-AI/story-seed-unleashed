@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, LogOut, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -17,6 +26,13 @@ export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -76,16 +92,47 @@ export const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link to="/user">
-              <Button variant="ghost" size="sm">
-                Login
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button variant="hero" size="sm">
-                Register Now
-              </Button>
-            </Link>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={user?.avatar} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-foreground">{user?.name}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem asChild>
+                    <Link to={`/${user?.role}/dashboard`} className="flex items-center cursor-pointer">
+                      <UserIcon className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link to="/user">
+                  <Button variant="ghost" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button variant="hero" size="sm">
+                    Register Now
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -120,16 +167,45 @@ export const Navbar = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border space-y-2">
-              <Link to="/user" className="block">
-                <Button variant="outline" className="w-full">
-                  Login
-                </Button>
-              </Link>
-              <Link to="/register" className="block">
-                <Button variant="hero" className="w-full">
-                  Register Now
-                </Button>
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={user?.avatar} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {user?.name?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-foreground">{user?.name}</p>
+                      <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    </div>
+                  </div>
+                  <Link to={`/${user?.role}/dashboard`}>
+                    <Button variant="outline" className="w-full">
+                      <UserIcon className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button variant="destructive" className="w-full" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/user" className="block">
+                    <Button variant="outline" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/register" className="block">
+                    <Button variant="hero" className="w-full">
+                      Register Now
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
