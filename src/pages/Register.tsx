@@ -139,6 +139,7 @@ const Register = () => {
       // Send to webhook (with video)
       console.log('Sending to webhook...');
       const webhookFormData = new FormData();
+      webhookFormData.append('user_id', user.id);
       webhookFormData.append('firstName', formData.firstName);
       webhookFormData.append('lastName', formData.lastName);
       webhookFormData.append('email', formData.email);
