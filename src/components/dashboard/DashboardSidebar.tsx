@@ -18,6 +18,7 @@ import {
   User,
   History,
   Bell,
+  Compass,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -35,6 +36,8 @@ interface DashboardSidebarProps {
 
 const userNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/user/dashboard', icon: LayoutDashboard },
+  { name: 'Explore', path: '/user/dashboard/explore', icon: Compass },
+  { name: 'Voting', path: '/user/dashboard/voting', icon: Vote },
   { name: 'Events', path: '/user/dashboard/events', icon: Calendar },
   { name: 'My Registrations', path: '/user/dashboard/registrations', icon: Trophy },
   { name: 'My Profile', path: '/user/dashboard/profile', icon: User },

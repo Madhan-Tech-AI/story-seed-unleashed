@@ -17,9 +17,9 @@ export const AnnouncementBanner = () => {
   const currentAnnouncement = announcements[currentIndex];
 
   return (
-    <div className="bg-gradient-hero text-primary-foreground relative overflow-hidden">
+    <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-hero text-primary-foreground relative overflow-hidden">
       <div className="absolute inset-0 shimmer" />
-      <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-4 relative">
+      <div className="container mx-auto px-4 max-w-7xl py-2 flex items-center justify-center gap-4 relative">
         <Sparkles className="w-4 h-4 animate-pulse" />
         <p className="text-sm font-medium text-center truncate">
           {currentAnnouncement.text}

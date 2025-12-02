@@ -49,13 +49,13 @@ export const Navbar = () => {
   return (
     <nav
       className={cn(
-        'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+        'fixed left-0 right-0 z-50 transition-all duration-300 border-b',
         scrolled
-          ? 'bg-background/95 backdrop-blur-lg shadow-md py-2'
-          : 'bg-transparent py-4'
+          ? 'top-0 py-2 bg-background/95 backdrop-blur-lg border-border/60 shadow-md'
+          : 'top-[40px] py-4 bg-transparent border-transparent shadow-none'
       )}
     >
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-4 max-w-7xl">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">

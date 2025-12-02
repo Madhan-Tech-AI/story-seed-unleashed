@@ -112,7 +112,7 @@ const UserDashboard = () => {
             <h2 className="font-display text-xl font-semibold text-foreground">
               My Submissions
             </h2>
-            <Link to="/user/dashboard/registrations" className="text-primary text-sm hover:underline">
+          <Link to="/user/dashboard/registrations" className="text-primary text-sm hover:underline">
               View All
             </Link>
           </div>
@@ -141,7 +141,7 @@ const UserDashboard = () => {
               </div>
             ))}
           </div>
-          <Link to="/register" className="block mt-4">
+          <Link to="/user/dashboard/register" className="block mt-4">
             <Button variant="hero" className="w-full">
               Submit New Story
               <ArrowRight className="w-4 h-4" />
