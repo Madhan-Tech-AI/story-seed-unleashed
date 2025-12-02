@@ -85,16 +85,62 @@ const events = [
     featured: true,
     trending: true,
   },
+  {
+    id: 7,
+    title: 'City Lights Story Marathon',
+    description: 'Tell fast-paced tales inspired by the buzz and glow of big cities at night',
+    image: 'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?w=800&q=80',
+    date: 'July 10 - August 5, 2025',
+    prize: '₹20,000',
+    participants: '900+',
+    status: 'live',
+    category: 'Featured',
+    featured: true,
+    trending: false,
+  },
+  {
+    id: 8,
+    title: 'Bedtime Micro Stories',
+    description: 'Write short and sweet bedtime stories under 300 words',
+    image: 'https://images.unsplash.com/photo-1516637090014-cb1ab0d08fc7?w=800&q=80',
+    date: 'September 1 - September 30, 2025',
+    prize: '₹15,000',
+    participants: '1,100+',
+    status: 'upcoming',
+    category: 'Upcoming',
+    featured: false,
+    trending: true,
+  },
+  {
+    id: 9,
+    title: 'Voices of the Village',
+    description: 'Celebrate rural life with heartfelt stories from villages across India',
+    image: 'https://images.unsplash.com/photo-1528715471579-d1bcf0ba5e83?w=800&q=80',
+    date: 'January 5 - February 20, 2026',
+    prize: '₹28,000',
+    participants: '1,400+',
+    status: 'upcoming',
+    category: 'Featured',
+    featured: true,
+    trending: false,
+  },
 ];
 
-export const EventsSection = () => {
+type EventsSectionProps = {
+  mode?: 'home' | 'all';
+};
+
+export const EventsSection = ({ mode = 'home' }: EventsSectionProps) => {
   const [activeCategory, setActiveCategory] = useState('Upcoming');
 
-  const filteredEvents = events.filter((event) => {
-    if (activeCategory === 'Featured') return event.featured;
-    if (activeCategory === 'Trending') return event.trending;
-    return event.category === activeCategory;
-  });
+  const filteredEvents =
+    mode === 'all'
+      ? events
+      : events.filter((event) => {
+          if (activeCategory === 'Featured') return event.featured;
+          if (activeCategory === 'Trending') return event.trending;
+          return event.category === activeCategory;
+        });
 
   return (
     <section className="py-20 bg-background">
@@ -102,7 +148,15 @@ export const EventsSection = () => {
         {/* Header */}
         <div className="text-center mb-12 space-y-4">
           <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground">
-            Upcoming <span className="text-gradient">Events</span>
+            {mode === 'all' ? (
+              <>
+                All <span className="text-gradient">Events</span>
+              </>
+            ) : (
+              <>
+                Upcoming <span className="text-gradient">Events</span>
+              </>
+            )}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Don't miss out on these exciting storytelling competitions and events
@@ -110,25 +164,27 @@ export const EventsSection = () => {
         </div>
 
         {/* Category Tabs */}
-        <div className="flex justify-center gap-2 mb-12">
-          {eventCategories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category)}
-              className={cn(
-                'px-6 py-3 rounded-full font-medium text-sm transition-all duration-300',
-                activeCategory === category
-                  ? 'bg-primary text-primary-foreground shadow-glow'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              )}
-            >
-              {category === 'Featured' && <Star className="w-4 h-4 inline mr-2" />}
-              {category === 'Trending' && <TrendingUp className="w-4 h-4 inline mr-2" />}
-              {category === 'Upcoming' && <Clock className="w-4 h-4 inline mr-2" />}
-              {category}
-            </button>
-          ))}
-        </div>
+        {mode === 'home' && (
+          <div className="flex justify-center gap-2 mb-12">
+            {eventCategories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={cn(
+                  'px-6 py-3 rounded-full font-medium text-sm transition-all duration-300',
+                  activeCategory === category
+                    ? 'bg-primary text-primary-foreground shadow-glow'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                {category === 'Featured' && <Star className="w-4 h-4 inline mr-2" />}
+                {category === 'Trending' && <TrendingUp className="w-4 h-4 inline mr-2" />}
+                {category === 'Upcoming' && <Clock className="w-4 h-4 inline mr-2" />}
+                {category}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Events Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -206,14 +262,16 @@ export const EventsSection = () => {
         </div>
 
         {/* View All */}
-        <div className="text-center mt-12">
-          <Link to="/gallery">
-            <Button variant="hero" size="lg">
-              View All Events
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-          </Link>
-        </div>
+        {mode === 'home' && (
+          <div className="text-center mt-12">
+            <Link to="/events">
+              <Button variant="hero" size="lg">
+                View All Events
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
