@@ -81,11 +81,7 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={cn(
-                'pl-10',
-                role === 'judge' &&
-                  'bg-background/70 border-primary/40 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)] focus-visible:ring-primary focus-visible:ring-offset-0',
-              )}
+              className="pl-10"
               required
             />
           </div>
@@ -101,11 +97,7 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className={cn(
-                'pl-10 pr-10',
-                role === 'judge' &&
-                  'bg-background/70 border-primary/40 shadow-[0_0_0_1px_hsl(var(--primary)/0.25)] focus-visible:ring-primary focus-visible:ring-offset-0',
-              )}
+              className="pl-10 pr-10"
               required
             />
             <button
