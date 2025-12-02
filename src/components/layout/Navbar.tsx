@@ -16,8 +16,9 @@ import {
 const navLinks = [
   { name: 'Home', path: '/' },
   { name: 'About Us', path: '/about' },
+  { name: 'Leaderboard', path: '/voting' },
+  { name: 'All Events', path: '/events' },
   { name: 'Gallery', path: '/gallery' },
-  { name: 'Voting', path: '/voting' },
   { name: 'FAQ', path: '/faq' },
   { name: 'Contact', path: '/contact' },
 ];
