@@ -121,6 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             name,
+            role, // Store role in metadata as well
           },
         },
       });
@@ -129,19 +130,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: error.message };
       }
 
-      if (data.user && role) {
-        // Assign role to user
+      if (!data.user) {
+        return { success: false, error: 'Signup failed - no user created' };
+      }
+
+      // Assign role to user - this is critical for role-based access
+      if (role) {
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert({ user_id: data.user.id, role });
 
         if (roleError) {
           console.error('Error assigning role:', roleError);
+          return { 
+            success: false, 
+            error: 'Account created but role assignment failed. Please contact support.' 
+          };
         }
+      } else {
+        return { 
+          success: false, 
+          error: 'Role is required for signup' 
+        };
       }
 
       return { success: true };
     } catch (error) {
+      console.error('Signup error:', error);
       return { success: false, error: 'An unexpected error occurred' };
     }
   }, []);
