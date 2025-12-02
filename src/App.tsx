@@ -42,6 +42,8 @@ import AdminCompetitions from "./pages/dashboard/AdminCompetitions";
 import AdminJudges from "./pages/dashboard/AdminJudges";
 import AdminUsers from "./pages/dashboard/AdminUsers";
 import AdminOutcomes from "./pages/dashboard/AdminOutcomes";
+import AdminNotifications from "./pages/dashboard/AdminNotifications";
+import AdminSettings from "./pages/dashboard/AdminSettings";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +98,8 @@ const App = () => (
               <Route path="judges" element={<AdminJudges />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="outcomes" element={<AdminOutcomes />} />
+              <Route path="notifications" element={<AdminNotifications />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             {/* 404 */}
