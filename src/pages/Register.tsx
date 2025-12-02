@@ -48,7 +48,45 @@ const Register = () => {
     }
   };
 
+  const validateStep = () => {
+    if (currentStep === 1) {
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.age || !formData.city) {
+        toast({
+          title: 'Missing Information',
+          description: 'Please fill in all required fields.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    }
+    
+    if (currentStep === 2) {
+      if (!formData.storyTitle || !formData.category || !formData.storyDescription) {
+        toast({
+          title: 'Missing Information',
+          description: 'Please fill in all story details.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      if (!videoFile) {
+        toast({
+          title: 'Missing Video',
+          description: 'Please upload your video story.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
   const handleNext = async () => {
+    if (!validateStep()) {
+      return;
+    }
+    
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -70,8 +108,11 @@ const Register = () => {
     setIsSubmitting(true);
 
     try {
+      console.log('Starting registration submission...');
+      
       // Save to Supabase (without video)
-      const { error: dbError } = await supabase
+      console.log('Saving to database...');
+      const { data: insertData, error: dbError } = await supabase
         .from('registrations')
         .insert({
           user_id: user.id,
@@ -84,12 +125,19 @@ const Register = () => {
           story_title: formData.storyTitle,
           category: formData.category,
           story_description: formData.storyDescription,
-          yt_link: null, // Leave empty as requested
-        });
+          yt_link: null,
+        })
+        .select();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error('Database error:', dbError);
+        throw new Error(`Database error: ${dbError.message}`);
+      }
+      
+      console.log('Database save successful:', insertData);
 
       // Send to webhook (with video)
+      console.log('Sending to webhook...');
       const webhookFormData = new FormData();
       webhookFormData.append('firstName', formData.firstName);
       webhookFormData.append('lastName', formData.lastName);
@@ -103,15 +151,23 @@ const Register = () => {
       
       if (videoFile) {
         webhookFormData.append('video', videoFile);
+        console.log('Video file attached:', videoFile.name);
       }
 
-      const webhookResponse = await fetch('https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload', {
-        method: 'POST',
-        body: webhookFormData,
-      });
+      try {
+        const webhookResponse = await fetch('https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload', {
+          method: 'POST',
+          body: webhookFormData,
+        });
 
-      if (!webhookResponse.ok) {
-        console.error('Webhook submission failed');
+        if (!webhookResponse.ok) {
+          console.error('Webhook submission failed with status:', webhookResponse.status);
+        } else {
+          console.log('Webhook submission successful');
+        }
+      } catch (webhookError) {
+        console.error('Webhook error (non-blocking):', webhookError);
+        // Don't throw - webhook failure shouldn't block registration
       }
 
       setIsComplete(true);
@@ -119,11 +175,11 @@ const Register = () => {
         title: 'Registration Successful! 🎉',
         description: 'Welcome to Story Seed Studio! Your submission has been received.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
       toast({
         title: 'Registration Failed',
-        description: 'There was an error submitting your registration. Please try again.',
+        description: error.message || 'There was an error submitting your registration. Please try again.',
         variant: 'destructive',
       });
     } finally {
