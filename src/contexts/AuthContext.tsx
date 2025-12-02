@@ -63,54 +63,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Load user data (called outside of auth state change to avoid deadlock)
+  const loadUserData = useCallback(async (supabaseUser: SupabaseUser) => {
+    const profile = await fetchUserProfile(supabaseUser.id);
+    const role = await fetchUserRole(supabaseUser.id);
+    
+    setUser({
+      id: supabaseUser.id,
+      email: supabaseUser.email || '',
+      role,
+      name: profile?.name || supabaseUser.user_metadata?.name || 'User',
+      avatar: profile?.avatar,
+    });
+  }, [fetchUserProfile, fetchUserRole]);
+
   // Initialize auth state
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        
-        if (session?.user) {
-          const profile = await fetchUserProfile(session.user.id);
-          const role = await fetchUserRole(session.user.id);
-          
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            role,
-            name: profile?.name || 'User',
-            avatar: profile?.avatar,
-          });
-        } else {
-          setUser(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    // Check for existing session FIRST
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        const role = await fetchUserRole(session.user.id);
-        
-        setUser({
-          id: session.user.id,
-          email: session.user.email || '',
-          role,
-          name: profile?.name || 'User',
-          avatar: profile?.avatar,
+        loadUserData(session.user).finally(() => {
+          setLoading(false);
         });
+      } else {
+        setLoading(false);
       }
-      
-      setLoading(false);
     });
 
+    // Set up auth state listener - AVOID async/await in callback to prevent deadlock
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        
+        if (session?.user) {
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => {
+            loadUserData(session.user);
+          }, 0);
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
     return () => subscription.unsubscribe();
-  }, [fetchUserRole, fetchUserProfile]);
+  }, [loadUserData]);
 
   const signup = useCallback(async (
     email: string, 
@@ -125,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             name,
-            role, // Store role in metadata as well
+            role,
           },
         },
       });
@@ -138,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: 'Signup failed - no user created' };
       }
 
-      // Assign role to user - this is critical for role-based access
+      // Assign role to user
       if (role) {
         const { error: roleError } = await supabase
           .from('user_roles')
@@ -230,7 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: !!user,
+        isAuthenticated: !!user && !!session,
         login,
         signup,
         signInWithGoogle,
