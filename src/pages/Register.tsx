@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Check, User, FileText, CreditCard, ArrowRight, ArrowLeft, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,20 @@ const Register = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to register for competitions.',
+        variant: 'destructive',
+      });
+      navigate('/user');
+    }
+  }, [isAuthenticated, loading, navigate, toast]);
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -208,7 +220,7 @@ const Register = () => {
             Your registration has been submitted successfully. Check your email for confirmation and next steps.
           </p>
           <div className="space-y-4">
-            <Link to="/user">
+            <Link to="/user/dashboard">
               <Button variant="hero" size="lg" className="w-full">
                 Go to Dashboard
               </Button>
