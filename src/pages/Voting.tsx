@@ -32,7 +32,7 @@ const entries = [
   },
   {
     id: 3,
-    title: 'My Grandmother\'s Secret Recipe',
+    title: "My Grandmother's Secret Recipe",
     author: 'Priya Reddy',
     age: 9,
     thumbnail: 'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=400&q=80',
