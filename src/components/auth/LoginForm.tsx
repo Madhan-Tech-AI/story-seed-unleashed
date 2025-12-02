@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, LogIn, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,11 +14,13 @@ interface LoginFormProps {
 }
 
 export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -32,23 +34,38 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (mode === 'signup') {
+      const { success, error } = await signup(email, password, name || 'User', role);
 
-    const success = login(email, password, role);
-
-    if (success) {
-      toast({
-        title: 'Login Successful',
-        description: `Welcome back! You're now logged in as ${roleLabels[role]}.`,
-      });
-      navigate(redirectPath);
+      if (success) {
+        toast({
+          title: 'Signup Successful! 🎉',
+          description: 'Please check your email to verify your account.',
+        });
+        setMode('login');
+      } else {
+        toast({
+          title: 'Signup Failed',
+          description: error || 'Unable to create account. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } else {
-      toast({
-        title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
-        variant: 'destructive',
-      });
+      const { success, error } = await login(email, password, role);
+
+      if (success) {
+        toast({
+          title: 'Login Successful',
+          description: `Welcome back! You're now logged in as ${roleLabels[role]}.`,
+        });
+        navigate(redirectPath);
+      } else {
+        toast({
+          title: 'Login Failed',
+          description: error || 'Invalid email or password. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
 
     setIsLoading(false);
@@ -59,18 +76,38 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="w-16 h-16 mx-auto bg-gradient-hero rounded-2xl flex items-center justify-center mb-4">
-          <LogIn className="w-8 h-8 text-primary-foreground" />
+          {mode === 'login' ? (
+            <LogIn className="w-8 h-8 text-primary-foreground" />
+          ) : (
+            <UserPlus className="w-8 h-8 text-primary-foreground" />
+          )}
         </div>
         <h1 className="font-display text-3xl font-bold text-foreground">
-          {roleLabels[role]} Login
+          {mode === 'login' ? `${roleLabels[role]} Login` : `${roleLabels[role]} Sign Up`}
         </h1>
         <p className="text-muted-foreground">
-          Sign in to your {roleLabels[role].toLowerCase()} account
+          {mode === 'login'
+            ? `Sign in to your ${roleLabels[role].toLowerCase()} account`
+            : `Create your ${roleLabels[role].toLowerCase()} account`}
         </p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {mode === 'signup' && (
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Enter your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Email Address</Label>
           <div className="relative">
@@ -110,18 +147,20 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-            />
-            <span className="text-muted-foreground">Remember me</span>
-          </label>
-          <a href="#" className="text-primary hover:underline">
-            Forgot password?
-          </a>
-        </div>
+        {mode === 'login' && (
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+              />
+              <span className="text-muted-foreground">Remember me</span>
+            </label>
+            <a href="#" className="text-primary hover:underline">
+              Forgot password?
+            </a>
+          </div>
+        )}
 
         <Button
           type="submit"
@@ -134,30 +173,35 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
             <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
           ) : (
             <>
-              Sign In
+              {mode === 'login' ? 'Sign In' : 'Create Account'}
               <ArrowRight className="w-5 h-5" />
             </>
           )}
         </Button>
       </form>
 
-      {/* Demo credentials */}
-      <div className="p-4 bg-muted rounded-lg text-sm">
-        <p className="font-medium text-foreground mb-2">Demo Credentials:</p>
-        <p className="text-muted-foreground">Email: madhankumar070406@gmail.com</p>
-        <p className="text-muted-foreground">Password: Madhan@2407</p>
+      {/* Toggle between login and signup */}
+      <div className="text-center">
+        <button
+          type="button"
+          onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {mode === 'login' ? (
+            <>
+              Don't have an account?{' '}
+              <span className="text-primary font-medium">Sign up</span>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <span className="text-primary font-medium">Sign in</span>
+            </>
+          )}
+        </button>
       </div>
 
       {/* Footer */}
-      {role === 'user' && (
-        <p className="text-center text-muted-foreground">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-primary hover:underline font-medium">
-            Sign up
-          </Link>
-        </p>
-      )}
-
       <div className="text-center">
         <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
           ← Back to Home
