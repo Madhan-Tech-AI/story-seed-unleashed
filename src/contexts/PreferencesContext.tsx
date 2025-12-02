@@ -24,7 +24,8 @@ const getSystemTheme = (): ThemeMode => {
 
 export const PreferencesProvider = ({ children }: { children: React.ReactNode }) => {
   const [language, setLanguageState] = useState<Language>('en');
-  const [theme, setThemeState] = useState<ThemeMode>('system');
+  // Default to light theme so the app starts in light mode even if the OS is dark
+  const [theme, setThemeState] = useState<ThemeMode>('light');
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -40,16 +41,8 @@ export const PreferencesProvider = ({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  // Apply theme to document
+  // Persist preferences to localStorage
   useEffect(() => {
-    const root = document.documentElement;
-    const effectiveTheme = theme === 'system' ? getSystemTheme() : theme;
-    if (effectiveTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-
     try {
       localStorage.setItem(
         STORAGE_KEY,
