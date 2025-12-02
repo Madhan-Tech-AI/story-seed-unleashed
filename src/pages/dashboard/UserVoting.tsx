@@ -161,7 +161,7 @@ const UserVoting = () => {
                   <span className="text-muted-foreground">
                     Voting as{' '}
                     <span className="font-medium">
-                      {user.userId || user.name?.split(' ')[0]}
+                      {user.id || user.name?.split(' ')[0]}
                     </span>
                   </span>
                 )}

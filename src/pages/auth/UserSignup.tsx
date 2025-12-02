@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const UserSignup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { signup } = useAuth();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -23,7 +23,7 @@ const UserSignup = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -35,11 +35,16 @@ const UserSignup = () => {
       return;
     }
 
-    register({
-      name: formData.fullName,
-      email: formData.email,
-      password: formData.password,
-    });
+    const result = await signup(formData.email, formData.password, formData.fullName, 'user');
+    
+    if (!result.success) {
+      toast({
+        title: 'Signup failed',
+        description: result.error || 'An error occurred during signup.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     toast({
       title: 'Account created!',
