@@ -10,19 +10,15 @@ import { usePreferences } from '@/contexts/PreferencesContext';
 
 export const DashboardHeader = () => {
   const { user, role } = useAuth();
-  const { language: globalLanguage, setLanguage: setGlobalLanguage, theme: globalTheme, setTheme: setGlobalTheme } =
-    usePreferences();
+  const { language: globalLanguage, setLanguage: setGlobalLanguage } = usePreferences();
   const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<'general' | 'notifications' | 'appearance' | 'account'>('general');
+  const [activeSection, setActiveSection] = useState<'general' | 'notifications' | 'display' | 'account'>('general');
   const [language, setLanguage] = useState<'English' | 'Tamil'>(globalLanguage === 'ta' ? 'Tamil' : 'English');
   const [emailUpdates, setEmailUpdates] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [inAppAlerts, setInAppAlerts] = useState(true);
   const [weeklySummary, setWeeklySummary] = useState(false);
-  // Locally treat theme as just light or dark so appearance changes affect only the dashboard,
-  // and keep light as the default if anything else is stored.
-  const [theme, setTheme] = useState<'light' | 'dark'>(globalTheme === 'dark' ? 'dark' : 'light');
   const [compactLayout, setCompactLayout] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
 
@@ -65,7 +61,7 @@ export const DashboardHeader = () => {
               {[
                 { id: 'general', label: 'General' },
                 { id: 'notifications', label: 'Notifications' },
-                { id: 'appearance', label: 'Appearance' },
+                { id: 'display', label: 'Display' },
                 { id: 'account', label: 'Account' },
               ].map((item) => (
                 <button
@@ -237,39 +233,13 @@ export const DashboardHeader = () => {
                 </>
               )}
 
-              {activeSection === 'appearance' && (
+              {activeSection === 'display' && (
                 <>
-                  <h3 className="font-semibold text-foreground">Appearance</h3>
+                  <h3 className="font-semibold text-foreground">Display</h3>
                   <p className="text-xs text-muted-foreground">
-                    Personalise how Story Seed looks on your dashboard.
+                    Adjust how information is shown in your dashboard.
                   </p>
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-sm">Theme</p>
-                        <p className="text-xs text-muted-foreground">
-                          Switch between light and dark themes. Currently:{' '}
-                          <span className="font-medium capitalize">
-                            {theme}
-                          </span>
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const next = theme === 'light' ? 'dark' : 'light';
-                          setTheme(next);
-                          setGlobalTheme(next);
-                          toast({
-                            title: 'Theme updated',
-                            description: `Theme set to ${next}.`,
-                          });
-                        }}
-                      >
-                        {theme.charAt(0).toUpperCase() + theme.slice(1)}
-                      </Button>
-                    </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-sm">Compact layout</p>
