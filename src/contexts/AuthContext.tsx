@@ -5,6 +5,7 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 type UserRole = 'user' | 'judge' | 'admin' | null;
 
 interface User {
+  id: string;
   email: string;
   role: UserRole;
   name: string;
@@ -74,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const role = await fetchUserRole(session.user.id);
           
           setUser({
+            id: session.user.id,
             email: session.user.email || '',
             role,
             name: profile?.name || 'User',
@@ -96,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const role = await fetchUserRole(session.user.id);
         
         setUser({
+          id: session.user.id,
           email: session.user.email || '',
           role,
           name: profile?.name || 'User',
