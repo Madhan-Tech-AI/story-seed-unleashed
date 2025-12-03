@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      events: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar: string | null
@@ -45,6 +78,7 @@ export type Database = {
           city: string
           created_at: string
           email: string
+          event_id: string | null
           first_name: string
           id: string
           last_name: string
@@ -61,6 +95,7 @@ export type Database = {
           city: string
           created_at?: string
           email: string
+          event_id?: string | null
           first_name: string
           id?: string
           last_name: string
@@ -77,6 +112,7 @@ export type Database = {
           city?: string
           created_at?: string
           email?: string
+          event_id?: string | null
           first_name?: string
           id?: string
           last_name?: string
@@ -87,7 +123,15 @@ export type Database = {
           user_id?: string | null
           yt_link?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "registrations_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,19 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface Event {
+  id: string;
+  name: string;
+  description: string | null;
+}
 
 const steps = [
   { id: 1, title: 'Personal Info', icon: User },
@@ -21,6 +34,8 @@ const Register = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -52,6 +67,21 @@ const Register = () => {
     }
   }, [user]);
 
+  // Fetch events
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, name, description')
+        .eq('is_active', true);
+      
+      if (!error && data) {
+        setEvents(data);
+      }
+    };
+    fetchEvents();
+  }, []);
+
   // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -70,6 +100,14 @@ const Register = () => {
       toast({
         title: 'Missing information',
         description: 'Please fill in all personal information fields before continuing.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    if (!selectedEventId) {
+      toast({
+        title: 'Event Required',
+        description: 'Please select an event to participate in.',
         variant: 'destructive',
       });
       return false;
@@ -106,6 +144,7 @@ const Register = () => {
       // 1. Save registration to Supabase
       const { error: dbError } = await supabase.from('registrations').insert({
         user_id: user.id,
+        event_id: selectedEventId,
         first_name: personalInfo.firstName,
         last_name: personalInfo.lastName,
         email: personalInfo.email,
@@ -130,6 +169,7 @@ const Register = () => {
       // 2. Send data + video to webhook
       const formData = new FormData();
       formData.append('user_id', user.id);
+      formData.append('event_id', selectedEventId);
       formData.append('first_name', personalInfo.firstName);
       formData.append('last_name', personalInfo.lastName);
       formData.append('email', personalInfo.email);
@@ -384,6 +424,22 @@ const Register = () => {
                     />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>Select Event</Label>
+                  <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                    <SelectTrigger className="w-full">
+                      <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <SelectValue placeholder="Choose an event to participate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {events.map((event) => (
+                        <SelectItem key={event.id} value={event.id}>
+                          {event.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
 
@@ -502,6 +558,12 @@ const Register = () => {
                       <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">City</span>
                         <span className="font-medium text-foreground">{personalInfo.city}</span>
+                      </div>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Event</span>
+                        <span className="font-medium text-foreground">
+                          {events.find(e => e.id === selectedEventId)?.name || 'Not selected'}
+                        </span>
                       </div>
                     </div>
                   </div>
