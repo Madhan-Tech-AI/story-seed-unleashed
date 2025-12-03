@@ -1,8 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -18,6 +27,8 @@ export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout, role } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -30,6 +41,22 @@ export const Navbar = () => {
   useEffect(() => {
     setIsOpen(false);
   }, [location]);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
+  const getDashboardPath = () => {
+    switch (role) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'judge':
+        return '/judge/dashboard';
+      default:
+        return '/user/dashboard';
+    }
+  };
 
   return (
     <nav
@@ -77,16 +104,56 @@ export const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            <Link to="/user">
-              <Button variant="ghost" size="sm">
-                Login
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button variant="hero" size="sm">
-                Register Now
-              </Button>
-            </Link>
+            {isAuthenticated && user ? (
+              <>
+                <Link to="/register">
+                  <Button variant="hero" size="sm">
+                    Register Now
+                  </Button>
+                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 p-1 rounded-full hover:bg-muted transition-colors">
+                      <Avatar className="w-9 h-9">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-card">
+                    <div className="px-3 py-2">
+                      <p className="font-medium text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to={getDashboardPath()} className="cursor-pointer">
+                        <User className="w-4 h-4 mr-2" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Link to="/user">
+                  <Button variant="ghost" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button variant="hero" size="sm">
+                    Register Now
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -102,7 +169,7 @@ export const Navbar = () => {
         <div
           className={cn(
             'lg:hidden overflow-hidden transition-all duration-300',
-            isOpen ? 'max-h-[400px] opacity-100 mt-4' : 'max-h-0 opacity-0'
+            isOpen ? 'max-h-[500px] opacity-100 mt-4' : 'max-h-0 opacity-0'
           )}
         >
           <div className="bg-card rounded-xl p-4 shadow-lg space-y-2">
@@ -121,16 +188,48 @@ export const Navbar = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border space-y-2">
-              <Link to="/user" className="block">
-                <Button variant="outline" className="w-full">
-                  Login
-                </Button>
-              </Link>
-              <Link to="/register" className="block">
-                <Button variant="hero" className="w-full">
-                  Register Now
-                </Button>
-              </Link>
+              {isAuthenticated && user ? (
+                <>
+                  <div className="flex items-center gap-3 px-4 py-2">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback>{user.name?.charAt(0) || 'U'}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+                  <Link to={getDashboardPath()} className="block">
+                    <Button variant="outline" className="w-full">
+                      <User className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Link to="/register" className="block">
+                    <Button variant="hero" className="w-full">
+                      Register Now
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" className="w-full text-destructive" onClick={handleLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/user" className="block">
+                    <Button variant="outline" className="w-full">
+                      Login
+                    </Button>
+                  </Link>
+                  <Link to="/register" className="block">
+                    <Button variant="hero" className="w-full">
+                      Register Now
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
