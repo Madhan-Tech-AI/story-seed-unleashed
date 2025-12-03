@@ -66,28 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    // Check for existing session on mount
-    const initAuth = async () => {
-      try {
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-        
-        if (existingSession?.user) {
-          setSession(existingSession);
-          const userData = await fetchUserData(existingSession.user);
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    let mounted = true;
 
-    initAuth();
-
-    // Listen for auth state changes
+    // Set up auth state listener FIRST (before checking session)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
+        if (!mounted) return;
+        
+        // Update session synchronously
         setSession(newSession);
         
         if (event === 'SIGNED_OUT' || !newSession?.user) {
@@ -97,17 +83,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (newSession?.user) {
-          // Use setTimeout to avoid deadlock with Supabase client
+          // Defer async operations to avoid deadlock
           setTimeout(async () => {
+            if (!mounted) return;
             const userData = await fetchUserData(newSession.user);
-            setUser(userData);
-            setIsLoading(false);
+            if (mounted) {
+              setUser(userData);
+              setIsLoading(false);
+            }
           }, 0);
         }
       }
     );
 
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      if (!mounted) return;
+      
+      if (existingSession?.user) {
+        setSession(existingSession);
+        fetchUserData(existingSession.user).then((userData) => {
+          if (mounted) {
+            setUser(userData);
+            setIsLoading(false);
+          }
+        });
+      } else {
+        setIsLoading(false);
+      }
+    });
+
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, [fetchUserData]);
