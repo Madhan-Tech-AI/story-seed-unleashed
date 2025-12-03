@@ -51,6 +51,7 @@ export type Database = {
       }
       events: {
         Row: {
+          banner_image: string | null
           created_at: string | null
           description: string | null
           end_date: string | null
@@ -61,6 +62,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          banner_image?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
@@ -71,6 +73,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          banner_image?: string | null
           created_at?: string | null
           description?: string | null
           end_date?: string | null
@@ -212,6 +215,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      views: {
+        Row: {
+          created_at: string
+          id: string
+          ip_address: string | null
+          registration_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          registration_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          registration_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "views_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       votes: {
         Row: {
