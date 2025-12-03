@@ -16,7 +16,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, role: UserRole) => Promise<boolean>;
+  login: (email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   role: UserRole;
@@ -119,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [fetchUserData]);
 
-  const login = useCallback(async (email: string, password: string, role: UserRole): Promise<boolean> => {
+  const login = useCallback(async (email: string, password: string, expectedRole: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -128,27 +128,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error || !data.user) {
         console.error('Login error:', error);
-        return false;
+        return { success: false, error: 'Invalid email or password' };
       }
 
-      // Verify user has the correct role
-      const { data: roleData } = await supabase
+      // Fetch the user's actual role from the database
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', data.user.id)
-        .eq('role', role)
         .single();
 
-      if (!roleData && role !== 'user') {
-        // User doesn't have the required role
+      if (roleError || !roleData) {
+        // User has no role assigned - sign out
         await supabase.auth.signOut();
-        return false;
+        return { success: false, error: 'No role assigned to this account' };
       }
 
-      return true;
+      const actualRole = roleData.role as UserRole;
+
+      // Verify user has the expected role for this portal
+      if (expectedRole !== 'user' && actualRole !== expectedRole) {
+        await supabase.auth.signOut();
+        return { success: false, error: `This account does not have ${expectedRole} access. Your role is: ${actualRole}` };
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { success: false, error: 'An unexpected error occurred' };
     }
   }, []);
 

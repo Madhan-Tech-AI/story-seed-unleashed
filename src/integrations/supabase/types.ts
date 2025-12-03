@@ -85,23 +85,44 @@ export type Database = {
       profiles: {
         Row: {
           avatar: string | null
+          bio: string | null
+          city: string | null
           created_at: string | null
+          grade: string | null
+          guardian_contact: string | null
+          guardian_name: string | null
           id: string
+          institution: string | null
           name: string | null
+          phone: string | null
           updated_at: string | null
         }
         Insert: {
           avatar?: string | null
+          bio?: string | null
+          city?: string | null
           created_at?: string | null
+          grade?: string | null
+          guardian_contact?: string | null
+          guardian_name?: string | null
           id: string
+          institution?: string | null
           name?: string | null
+          phone?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar?: string | null
+          bio?: string | null
+          city?: string | null
           created_at?: string | null
+          grade?: string | null
+          guardian_contact?: string | null
+          guardian_name?: string | null
           id?: string
+          institution?: string | null
           name?: string | null
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -117,6 +138,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          overall_votes: number
           phone: string
           story_description: string
           story_title: string
@@ -134,6 +156,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          overall_votes?: number
           phone: string
           story_description: string
           story_title: string
@@ -151,6 +174,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          overall_votes?: number
           phone?: string
           story_description?: string
           story_title?: string
