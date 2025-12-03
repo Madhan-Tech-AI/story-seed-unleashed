@@ -21,10 +21,10 @@ const UserProfile = () => {
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">{user?.name}</h2>
             <p className="text-muted-foreground">{user?.email}</p>
-            {user?.userId && (
+            {user?.id && (
               <p className="text-xs text-muted-foreground mt-1">
                 User ID:{' '}
-                <span className="font-mono font-semibold text-foreground">{user.userId}</span>
+                <span className="font-mono font-semibold text-foreground">{user.id}</span>
               </p>
             )}
           </div>
