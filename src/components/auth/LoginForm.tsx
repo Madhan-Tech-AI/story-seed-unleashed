@@ -44,9 +44,9 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const success = await login(email, password, role);
+    const result = await login(email, password, role);
 
-    if (success) {
+    if (result.success) {
       toast({
         title: 'Login Successful',
         description: `Welcome back! You're now logged in as ${roleLabels[role]}.`,
@@ -57,7 +57,7 @@ export const LoginForm = ({ role, redirectPath }: LoginFormProps) => {
     } else {
       toast({
         title: 'Login Failed',
-        description: 'Invalid email or password. Please try again.',
+        description: result.error || 'Invalid email or password. Please try again.',
         variant: 'destructive',
       });
     }
