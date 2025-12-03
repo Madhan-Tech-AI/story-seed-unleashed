@@ -103,7 +103,7 @@ export const HeroSection = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in"
             style={{ animationDelay: '0.2s' }}
           >
-            <Link to="/user">
+            <Link to="/register">
               <Button variant="hero" size="xl" className="shadow-xl">
                 Register Now
               </Button>
