@@ -35,6 +35,7 @@ const Register = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
+  const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -67,20 +68,36 @@ const Register = () => {
     }
   }, [user]);
 
-  // Fetch events
+  // Fetch events and user's existing registrations
   useEffect(() => {
-    const fetchEvents = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      // Fetch active events
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('id, name, description')
         .eq('is_active', true);
       
-      if (!error && data) {
-        setEvents(data);
+      if (!eventsError && eventsData) {
+        setEvents(eventsData);
+      }
+
+      // Fetch user's existing registrations to disable already registered events
+      if (user?.id) {
+        const { data: registrationsData, error: registrationsError } = await supabase
+          .from('registrations')
+          .select('event_id')
+          .eq('user_id', user.id);
+        
+        if (!registrationsError && registrationsData) {
+          const eventIds = registrationsData
+            .map(r => r.event_id)
+            .filter((id): id is string => id !== null);
+          setRegisteredEventIds(eventIds);
+        }
       }
     };
-    fetchEvents();
-  }, []);
+    fetchData();
+  }, [user?.id]);
 
   // Redirect to login if not authenticated (after loading completes)
   useEffect(() => {
@@ -138,6 +155,15 @@ const Register = () => {
       return false;
     }
 
+    if (!selectedEventId) {
+      toast({
+        title: 'Error',
+        description: 'Please select an event.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -166,10 +192,14 @@ const Register = () => {
         return false;
       }
 
+      // Get event name for webhook
+      const selectedEvent = events.find(e => e.id === selectedEventId);
+
       // 2. Send data + video to webhook
       const formData = new FormData();
       formData.append('user_id', user.id);
       formData.append('event_id', selectedEventId);
+      formData.append('event_name', selectedEvent?.name || '');
       formData.append('first_name', personalInfo.firstName);
       formData.append('last_name', personalInfo.lastName);
       formData.append('email', personalInfo.email);
@@ -183,6 +213,23 @@ const Register = () => {
       if (storyDetails.videoFile) {
         formData.append('video', storyDetails.videoFile);
       }
+
+      // Log webhook payload for debugging
+      console.log('Webhook payload:', {
+        user_id: user.id,
+        event_id: selectedEventId,
+        event_name: selectedEvent?.name,
+        first_name: personalInfo.firstName,
+        last_name: personalInfo.lastName,
+        email: personalInfo.email,
+        phone: personalInfo.phone,
+        age: personalInfo.age,
+        city: personalInfo.city,
+        story_title: storyDetails.title,
+        category: storyDetails.category,
+        story_description: storyDetails.description,
+        video: storyDetails.videoFile?.name,
+      });
 
       try {
         await fetch(WEBHOOK_URL, {
@@ -286,6 +333,9 @@ const Register = () => {
       </div>
     );
   }
+
+  // Filter available events (exclude already registered)
+  const availableEvents = events.filter(event => !registeredEventIds.includes(event.id));
 
   return (
     <div className="min-h-screen pt-20 bg-gradient-warm page-enter">
@@ -426,19 +476,32 @@ const Register = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Select Event</Label>
-                  <Select value={selectedEventId} onValueChange={setSelectedEventId}>
-                    <SelectTrigger className="w-full">
-                      <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <SelectValue placeholder="Choose an event to participate" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {events.map((event) => (
-                        <SelectItem key={event.id} value={event.id}>
-                          {event.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {availableEvents.length === 0 ? (
+                    <div className="p-4 bg-muted rounded-lg text-center">
+                      <p className="text-muted-foreground text-sm">
+                        You have already registered for all available events.
+                      </p>
+                    </div>
+                  ) : (
+                    <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+                      <SelectTrigger className="w-full">
+                        <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <SelectValue placeholder="Choose an event to participate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableEvents.map((event) => (
+                          <SelectItem key={event.id} value={event.id}>
+                            {event.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {registeredEventIds.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Events you've already registered for are not shown.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -502,20 +565,32 @@ const Register = () => {
                       const file = e.target.files?.[0] || null;
                       setStoryDetails((prev) => ({ ...prev, videoFile: file }));
                     }}
-                    required
                   />
                   <label
                     htmlFor="story-video-input"
-                    className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary transition-colors cursor-pointer block"
+                    className={cn(
+                      'flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed cursor-pointer transition-colors',
+                      storyDetails.videoFile
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-border bg-muted/30 hover:bg-muted/50'
+                    )}
                   >
-                    <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">
-                      Click to browse and upload your story video (required)
-                    </p>
-                    {storyDetails.videoFile && (
-                      <p className="text-xs text-foreground mt-2">
-                        Selected: {storyDetails.videoFile.name}
-                      </p>
+                    {storyDetails.videoFile ? (
+                      <>
+                        <Check className="w-8 h-8 text-green-600 mb-2" />
+                        <span className="text-sm font-medium text-green-700">
+                          {storyDetails.videoFile.name}
+                        </span>
+                        <span className="text-xs text-green-600">Click to change</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-sm text-muted-foreground">
+                          Click to upload video
+                        </span>
+                        <span className="text-xs text-muted-foreground">MP4, MOV, AVI</span>
+                      </>
                     )}
                   </label>
                 </div>
@@ -525,106 +600,91 @@ const Register = () => {
             {currentStep === 3 && (
               <div className="space-y-6 animate-fade-in">
                 <h2 className="font-display text-2xl font-semibold text-foreground">
-                  Review &amp; Confirm
+                  Review & Submit
                 </h2>
-                <p className="text-muted-foreground">
-                  Please review your details before submitting your registration.
-                </p>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Personal Information
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Name</span>
-                        <span className="font-medium text-foreground">
-                          {personalInfo.firstName} {personalInfo.lastName}
-                        </span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Email</span>
-                        <span className="font-medium text-foreground">{personalInfo.email}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Phone</span>
-                        <span className="font-medium text-foreground">{personalInfo.phone}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Age</span>
-                        <span className="font-medium text-foreground">{personalInfo.age}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">City</span>
-                        <span className="font-medium text-foreground">{personalInfo.city}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Event</span>
-                        <span className="font-medium text-foreground">
-                          {events.find(e => e.id === selectedEventId)?.name || 'Not selected'}
-                        </span>
-                      </div>
+                <div className="space-y-4">
+                  <div className="bg-muted/50 p-4 rounded-xl">
+                    <h3 className="font-medium text-foreground mb-2">Personal Info</h3>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <span className="font-medium text-foreground">Name:</span>{' '}
+                        {personalInfo.firstName} {personalInfo.lastName}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Email:</span>{' '}
+                        {personalInfo.email}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Phone:</span>{' '}
+                        {personalInfo.phone}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Age:</span>{' '}
+                        {personalInfo.age}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">City:</span>{' '}
+                        {personalInfo.city}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Event:</span>{' '}
+                        {events.find((e) => e.id === selectedEventId)?.name || 'Not selected'}
+                      </p>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Story Details
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Title</span>
-                        <span className="font-medium text-foreground">{storyDetails.title}</span>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">Category</span>
-                        <span className="font-medium text-foreground">
-                          {storyDetails.category}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-muted-foreground block">Description</span>
-                        <p className="font-medium text-foreground text-sm bg-muted/40 rounded-lg p-3">
-                          {storyDetails.description}
-                        </p>
-                      </div>
-                      <div className="flex justify-between gap-4 items-center">
-                        <span className="text-muted-foreground">Video</span>
-                        <span className="font-medium text-foreground truncate max-w-[200px]">
-                          {storyDetails.videoFile?.name ?? 'No file selected'}
-                        </span>
-                      </div>
+                  <div className="bg-muted/50 p-4 rounded-xl">
+                    <h3 className="font-medium text-foreground mb-2">Story Details</h3>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        <span className="font-medium text-foreground">Title:</span>{' '}
+                        {storyDetails.title}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Category:</span>{' '}
+                        {storyDetails.category}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Description:</span>{' '}
+                        {storyDetails.description}
+                      </p>
+                      <p>
+                        <span className="font-medium text-foreground">Video:</span>{' '}
+                        {storyDetails.videoFile?.name || 'Not uploaded'}
+                      </p>
                     </div>
                   </div>
                 </div>
-
-                <p className="text-xs text-muted-foreground">
-                  By clicking <span className="font-semibold">Submit Registration</span>, you
-                  confirm that all details provided are accurate.
-                </p>
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-6 border-t border-border">
+            {/* Navigation */}
+            <div className="flex justify-between mt-8">
               <Button
+                type="button"
                 variant="outline"
                 onClick={handlePrev}
-                disabled={currentStep === 1 || isSubmitting}
+                disabled={currentStep === 1}
                 className={cn(currentStep === 1 && 'invisible')}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              <Button variant="hero" onClick={handleNext} disabled={isSubmitting}>
+              <Button
+                type="button"
+                variant="hero"
+                onClick={handleNext}
+                disabled={isSubmitting || (currentStep === 1 && availableEvents.length === 0)}
+              >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Submitting...
                   </>
                 ) : currentStep === 3 ? (
-                  'Submit Registration'
+                  <>
+                    Submit Registration
+                    <Check className="w-4 h-4 ml-2" />
+                  </>
                 ) : (
                   <>
                     Next
