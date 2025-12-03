@@ -170,9 +170,9 @@ const UserExplore = () => {
     const list: ExploreUser[] = [...users];
 
     // Add the currently authenticated user if not already present in the static list
-    if (authUser && !list.find((u) => u.userId === authUser.userId)) {
+    if (authUser && !list.find((u) => u.userId === authUser.id)) {
       list.push({
-        userId: authUser.userId,
+        userId: authUser.id,
         name: authUser.name,
         username: '@' + authUser.name.toLowerCase().replace(/\s+/g, ''),
         avatar:
@@ -181,7 +181,7 @@ const UserExplore = () => {
             authUser.name
           )}`,
         bio: 'Story Seed creator',
-        totalVideos: stories.filter((s) => s.userId === authUser.userId).length || 0,
+        totalVideos: stories.filter((s) => s.userId === authUser.id).length || 0,
         followers: '0',
         following: '0',
       });
@@ -544,7 +544,7 @@ const UserExplore = () => {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>Watching as</span>
                       <span className="font-medium">
-                        {user.userId || user.name?.split(' ')[0]}
+                        {user.id || user.name?.split(' ')[0]}
                       </span>
                     </div>
                   )}

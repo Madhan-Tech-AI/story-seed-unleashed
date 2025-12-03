@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Check, User, FileText, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const steps = [
   { id: 1, title: 'Personal Info', icon: User },
@@ -13,10 +15,16 @@ const steps = [
   { id: 3, title: 'Review & Submit', icon: Check },
 ];
 
+const WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload';
+
 const Register = () => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isComplete, setIsComplete] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+
   const [personalInfo, setPersonalInfo] = useState({
     firstName: '',
     lastName: '',
@@ -36,6 +44,25 @@ const Register = () => {
     description: '',
     videoFile: null,
   });
+
+  // Pre-fill email if user is logged in
+  useEffect(() => {
+    if (user?.email && !personalInfo.email) {
+      setPersonalInfo(prev => ({ ...prev, email: user.email }));
+    }
+  }, [user]);
+
+  // Redirect to login if not authenticated (after loading completes)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please login to register for the competition.',
+        variant: 'destructive',
+      });
+      navigate('/user');
+    }
+  }, [isLoading, isAuthenticated, navigate, toast]);
 
   const validateStep1 = () => {
     const { firstName, lastName, email, phone, age, city } = personalInfo;
@@ -63,7 +90,85 @@ const Register = () => {
     return true;
   };
 
-  const handleNext = () => {
+  const submitRegistration = async () => {
+    if (!user?.id) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to submit.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // 1. Save registration to Supabase
+      const { error: dbError } = await supabase.from('registrations').insert({
+        user_id: user.id,
+        first_name: personalInfo.firstName,
+        last_name: personalInfo.lastName,
+        email: personalInfo.email,
+        phone: personalInfo.phone,
+        age: parseInt(personalInfo.age),
+        city: personalInfo.city,
+        story_title: storyDetails.title,
+        category: storyDetails.category,
+        story_description: storyDetails.description,
+      });
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        toast({
+          title: 'Registration Failed',
+          description: 'Could not save registration. Please try again.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // 2. Send data + video to webhook
+      const formData = new FormData();
+      formData.append('user_id', user.id);
+      formData.append('first_name', personalInfo.firstName);
+      formData.append('last_name', personalInfo.lastName);
+      formData.append('email', personalInfo.email);
+      formData.append('phone', personalInfo.phone);
+      formData.append('age', personalInfo.age);
+      formData.append('city', personalInfo.city);
+      formData.append('story_title', storyDetails.title);
+      formData.append('category', storyDetails.category);
+      formData.append('story_description', storyDetails.description);
+      
+      if (storyDetails.videoFile) {
+        formData.append('video', storyDetails.videoFile);
+      }
+
+      try {
+        await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          body: formData,
+        });
+      } catch (webhookError) {
+        console.error('Webhook error:', webhookError);
+        // Don't fail the whole registration if webhook fails
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Submission error:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleNext = async () => {
     if (currentStep === 1) {
       if (!validateStep1()) return;
       setCurrentStep(2);
@@ -77,12 +182,14 @@ const Register = () => {
     }
 
     if (currentStep === 3) {
-      // Final submission
-      setIsComplete(true);
-      toast({
-        title: 'Registration Successful! 🎉',
-        description: 'Your story has been submitted successfully.',
-      });
+      const success = await submitRegistration();
+      if (success) {
+        setIsComplete(true);
+        toast({
+          title: 'Registration Successful! 🎉',
+          description: 'Your story has been submitted successfully.',
+        });
+      }
     }
   };
 
@@ -91,6 +198,23 @@ const Register = () => {
       setCurrentStep(currentStep - 1);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen pt-20 flex items-center justify-center bg-gradient-warm">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render form if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (isComplete) {
     return (
@@ -140,7 +264,7 @@ const Register = () => {
           {/* Progress Steps */}
           <div className="relative mb-12">
             <div className="flex justify-between items-center">
-              {steps.map((step, index) => (
+              {steps.map((step) => (
                 <div key={step.id} className="flex flex-col items-center relative z-10">
                   <div
                     className={cn(
@@ -425,30 +549,29 @@ const Register = () => {
               <Button
                 variant="outline"
                 onClick={handlePrev}
-                disabled={currentStep === 1}
+                disabled={currentStep === 1 || isSubmitting}
                 className={cn(currentStep === 1 && 'invisible')}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              <Button variant="hero" onClick={handleNext}>
-                {currentStep === 3 ? 'Submit Registration' : 'Next'}
-                <ArrowRight className="w-4 h-4 ml-2" />
+              <Button variant="hero" onClick={handleNext} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : currentStep === 3 ? (
+                  'Submit Registration'
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
-
-          {/* Terms Link */}
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            By registering, you agree to our{' '}
-            <Link to="/terms" className="text-primary hover:underline">
-              Terms & Conditions
-            </Link>{' '}
-            and{' '}
-            <Link to="/privacy" className="text-primary hover:underline">
-              Privacy Policy
-            </Link>
-          </p>
         </div>
       </div>
     </div>

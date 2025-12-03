@@ -10,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 const UserSignup = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { signup } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -23,7 +24,7 @@ const UserSignup = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (formData.password !== formData.confirmPassword) {
@@ -35,18 +36,32 @@ const UserSignup = () => {
       return;
     }
 
-    register({
-      name: formData.fullName,
-      email: formData.email,
-      password: formData.password,
-    });
+    setIsLoading(true);
+    try {
+      const result = await signup(formData.fullName, formData.email, formData.password, 'user');
 
-    toast({
-      title: 'Account created!',
-      description: 'Welcome to Story Seed Studio.',
-    });
-
-    navigate('/user/dashboard');
+      if (result.success) {
+        toast({
+          title: 'Account created!',
+          description: 'Welcome to Story Seed Studio.',
+        });
+        navigate('/');
+      } else {
+        toast({
+          title: 'Signup Failed',
+          description: result.error || 'Could not create account.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -119,9 +134,15 @@ const UserSignup = () => {
                 />
               </div>
 
-              <Button type="submit" variant="hero" size="lg" className="w-full">
-                Sign Up
-                <ArrowRight className="w-5 h-5" />
+              <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                ) : (
+                  <>
+                    Sign Up
+                    <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
               </Button>
             </form>
 
