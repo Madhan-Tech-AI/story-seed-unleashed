@@ -1,33 +1,304 @@
-import { Eye, Edit, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Eye, Edit, Trash2, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
-const competitions = [
-  { id: 1, name: 'Summer Championship 2025', participants: 2500, status: 'Live', votes: 12500 },
-  { id: 2, name: 'Monsoon Tales Festival', participants: 1800, status: 'Upcoming', votes: 0 },
-  { id: 3, name: 'Diwali Story Sparkle', participants: 2200, status: 'Upcoming', votes: 0 },
-  { id: 4, name: 'Winter Wonder Tales', participants: 1500, status: 'Draft', votes: 0 },
-];
+interface Event {
+  id: string;
+  name: string;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean | null;
+  banner_image: string | null;
+  participantCount?: number;
+  voteCount?: number;
+}
 
-const AdminCompetitions = () => (
-  <div className="space-y-6 page-enter">
-    <h1 className="font-display text-2xl font-bold text-foreground">Manage Competitions</h1>
-    <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-muted/50"><tr><th className="text-left p-4 font-medium text-foreground">Competition</th><th className="text-left p-4 font-medium text-foreground">Participants</th><th className="text-left p-4 font-medium text-foreground">Votes</th><th className="text-left p-4 font-medium text-foreground">Status</th><th className="text-left p-4 font-medium text-foreground">Actions</th></tr></thead>
-        <tbody>
-          {competitions.map((comp) => (
-            <tr key={comp.id} className="border-t border-border/50">
-              <td className="p-4 font-medium text-foreground">{comp.name}</td>
-              <td className="p-4 text-muted-foreground">{comp.participants.toLocaleString()}</td>
-              <td className="p-4 text-muted-foreground">{comp.votes.toLocaleString()}</td>
-              <td className="p-4"><span className={`px-3 py-1 rounded-full text-xs font-medium ${comp.status === 'Live' ? 'bg-green-100 text-green-700' : comp.status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-muted-foreground'}`}>{comp.status}</span></td>
-              <td className="p-4"><div className="flex gap-2"><Button size="sm" variant="ghost"><Eye className="w-4 h-4" /></Button><Button size="sm" variant="ghost"><Edit className="w-4 h-4" /></Button><Button size="sm" variant="ghost" className="text-destructive"><Trash2 className="w-4 h-4" /></Button></div></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+const AdminCompetitions = () => {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [editEvent, setEditEvent] = useState<Event | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const fetchEvents = async () => {
+    try {
+      // Get events
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (eventsError) throw eventsError;
+
+      // Get participant and vote counts for each event
+      const eventsWithCounts = await Promise.all(
+        (eventsData || []).map(async (event) => {
+          const { count: participantCount } = await supabase
+            .from('registrations')
+            .select('*', { count: 'exact', head: true })
+            .eq('event_id', event.id);
+
+          const { data: registrations } = await supabase
+            .from('registrations')
+            .select('overall_votes')
+            .eq('event_id', event.id);
+
+          const voteCount = registrations?.reduce((sum, r) => sum + (r.overall_votes || 0), 0) || 0;
+
+          return {
+            ...event,
+            participantCount: participantCount || 0,
+            voteCount,
+          };
+        })
+      );
+
+      setEvents(eventsWithCounts);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+
+    // Real-time subscription
+    const channel = supabase
+      .channel('events-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
+        fetchEvents();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const getStatus = (event: Event) => {
+    if (!event.is_active) return 'Draft';
+    const now = new Date();
+    const start = event.start_date ? new Date(event.start_date) : null;
+    const end = event.end_date ? new Date(event.end_date) : null;
+    
+    if (start && now < start) return 'Upcoming';
+    if (end && now > end) return 'Ended';
+    return 'Live';
+  };
+
+  const handleUpdate = async () => {
+    if (!editEvent) return;
+    
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          name: editEvent.name,
+          description: editEvent.description,
+          start_date: editEvent.start_date,
+          end_date: editEvent.end_date,
+          is_active: editEvent.is_active,
+        })
+        .eq('id', editEvent.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Event Updated', description: 'Competition has been updated successfully.' });
+      setEditEvent(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from('events').delete().eq('id', id);
+      if (error) throw error;
+
+      toast({ title: 'Event Deleted', description: 'Competition has been deleted.' });
+      setDeleteConfirm(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 page-enter">
+      <h1 className="font-display text-2xl font-bold text-foreground">Manage Competitions</h1>
+      
+      {events.length === 0 ? (
+        <div className="bg-card p-8 rounded-2xl border border-border/50 text-center">
+          <p className="text-muted-foreground">No competitions created yet.</p>
+        </div>
+      ) : (
+        <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-4 font-medium text-foreground">Competition</th>
+                  <th className="text-left p-4 font-medium text-foreground">Participants</th>
+                  <th className="text-left p-4 font-medium text-foreground">Votes</th>
+                  <th className="text-left p-4 font-medium text-foreground">Status</th>
+                  <th className="text-left p-4 font-medium text-foreground">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => {
+                  const status = getStatus(event);
+                  return (
+                    <tr key={event.id} className="border-t border-border/50">
+                      <td className="p-4 font-medium text-foreground">{event.name}</td>
+                      <td className="p-4 text-muted-foreground">{event.participantCount?.toLocaleString()}</td>
+                      <td className="p-4 text-muted-foreground">{event.voteCount?.toLocaleString()}</td>
+                      <td className="p-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          status === 'Live' ? 'bg-green-100 text-green-700' : 
+                          status === 'Upcoming' ? 'bg-yellow-100 text-yellow-700' : 
+                          status === 'Ended' ? 'bg-red-100 text-red-700' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {status}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedEvent(event)}>
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setEditEvent(event)}>
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(event.id)}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* View Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedEvent?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-4">
+              {selectedEvent.banner_image && (
+                <img src={selectedEvent.banner_image} alt="Banner" className="w-full h-48 object-cover rounded-lg" />
+              )}
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-muted-foreground">Start:</span> {selectedEvent.start_date ? format(new Date(selectedEvent.start_date), 'PPP') : 'Not set'}</div>
+                <div><span className="text-muted-foreground">End:</span> {selectedEvent.end_date ? format(new Date(selectedEvent.end_date), 'PPP') : 'Not set'}</div>
+                <div><span className="text-muted-foreground">Participants:</span> {selectedEvent.participantCount}</div>
+                <div><span className="text-muted-foreground">Total Votes:</span> {selectedEvent.voteCount}</div>
+              </div>
+              {selectedEvent.description && (
+                <p className="text-muted-foreground">{selectedEvent.description}</p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editEvent} onOpenChange={() => setEditEvent(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Competition</DialogTitle>
+          </DialogHeader>
+          {editEvent && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Name</label>
+                <Input value={editEvent.name} onChange={(e) => setEditEvent({ ...editEvent, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input 
+                    type="date" 
+                    value={editEvent.start_date?.split('T')[0] || ''} 
+                    onChange={(e) => setEditEvent({ ...editEvent, start_date: e.target.value })} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input 
+                    type="date" 
+                    value={editEvent.end_date?.split('T')[0] || ''} 
+                    onChange={(e) => setEditEvent({ ...editEvent, end_date: e.target.value })} 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea 
+                  value={editEvent.description || ''} 
+                  onChange={(e) => setEditEvent({ ...editEvent, description: e.target.value })}
+                  rows={3}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  checked={editEvent.is_active || false}
+                  onChange={(e) => setEditEvent({ ...editEvent, is_active: e.target.checked })}
+                  id="is_active"
+                />
+                <label htmlFor="is_active" className="text-sm">Active</label>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setEditEvent(null)}>Cancel</Button>
+                <Button variant="hero" onClick={handleUpdate}><Check className="w-4 h-4 mr-1" />Save</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Competition?</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">This action cannot be undone. All associated data will be permanently deleted.</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>
+              <Trash2 className="w-4 h-4 mr-1" />Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  </div>
-);
+  );
+};
 
 export default AdminCompetitions;
