@@ -38,6 +38,7 @@ import UserResults from "./pages/dashboard/UserResults";
 import JudgeDashboard from "./pages/dashboard/JudgeDashboard";
 import JudgeSubmissions from "./pages/dashboard/JudgeSubmissions";
 import JudgeEntries from "./pages/dashboard/JudgeEntries";
+import JudgeLeaderboard from "./pages/dashboard/JudgeLeaderboard";
 import JudgeProfile from "./pages/dashboard/JudgeProfile";
 
 import AdminDashboard from "./pages/dashboard/AdminDashboard";
@@ -97,6 +98,7 @@ const App = () => (
               <Route index element={<JudgeDashboard />} />
               <Route path="submissions" element={<JudgeSubmissions />} />
               <Route path="entries" element={<JudgeEntries />} />
+              <Route path="leaderboard" element={<JudgeLeaderboard />} />
               <Route path="profile" element={<JudgeProfile />} />
             </Route>
 

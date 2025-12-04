@@ -48,6 +48,7 @@ const judgeNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/judge/dashboard', icon: LayoutDashboard },
   { name: 'Submissions', path: '/judge/dashboard/submissions', icon: FileText },
   { name: 'Entries', path: '/judge/dashboard/entries', icon: Eye },
+  { name: 'Leaderboard', path: '/judge/dashboard/leaderboard', icon: Trophy },
   { name: 'My Profile', path: '/judge/dashboard/profile', icon: User },
 ];
 
