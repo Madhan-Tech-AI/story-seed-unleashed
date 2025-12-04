@@ -14,6 +14,7 @@ interface GalleryItem {
   participants: number | null;
   featured: boolean;
   description: string | null;
+  event_images: string[] | null;
 }
 
 const Gallery = () => {
@@ -132,6 +133,31 @@ const Gallery = () => {
                 <p className="text-muted-foreground text-lg leading-relaxed">
                   {selectedItem.description}
                 </p>
+              </div>
+            )}
+
+            {/* Event Activity Images */}
+            {selectedItem.event_images && selectedItem.event_images.length > 0 && (
+              <div className="mt-12">
+                <h2 className="font-display text-2xl font-semibold text-foreground mb-6 flex items-center gap-2">
+                  <ImageIcon className="w-6 h-6 text-primary" />
+                  Event Highlights
+                </h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {selectedItem.event_images.map((img, idx) => (
+                    <div
+                      key={idx}
+                      className="relative aspect-[4/3] rounded-xl overflow-hidden group cursor-pointer"
+                    >
+                      <img
+                        src={img}
+                        alt={`${selectedItem.title} - Activity ${idx + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-charcoal/0 group-hover:bg-charcoal/30 transition-colors" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
