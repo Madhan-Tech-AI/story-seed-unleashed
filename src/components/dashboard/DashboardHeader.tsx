@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings } from 'lucide-react';
+import { Menu, Settings } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -8,7 +8,11 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
 
-export const DashboardHeader = () => {
+interface DashboardHeaderProps {
+  onToggleSidebar?: () => void;
+}
+
+export const DashboardHeader = ({ onToggleSidebar }: DashboardHeaderProps) => {
   const { user, role } = useAuth();
   const { language: globalLanguage, setLanguage: setGlobalLanguage } = usePreferences();
   const navigate = useNavigate();
@@ -23,10 +27,21 @@ export const DashboardHeader = () => {
   const [rememberDevice, setRememberDevice] = useState(true);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border px-6 py-4">
-      <div className="flex items-center justify-end">
+    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border px-4 sm:px-6 py-4">
+      <div className="flex items-center justify-between gap-4">
+        {onToggleSidebar ? (
+          <button
+            className="lg:hidden p-2 rounded-xl border border-border text-foreground/80 hover:text-primary hover:border-primary transition-colors"
+            onClick={onToggleSidebar}
+            aria-label="Toggle sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        ) : (
+          <span className="lg:hidden" />
+        )}
         {/* Right Actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-1 items-center justify-end gap-4">
           {/* Settings */}
           <button
             className="p-2 rounded-xl hover:bg-muted transition-colors"
