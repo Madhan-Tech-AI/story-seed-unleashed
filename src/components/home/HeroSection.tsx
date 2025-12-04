@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import slide1 from '@/assets/slides/slide-1.jpg';
+import slide2 from '@/assets/slides/slide-2.jpg';
+import slide3 from '@/assets/slides/slide-3.jpg';
 
 const heroSlides = [
   {
@@ -10,24 +13,21 @@ const heroSlides = [
     title: 'Small Voices.',
     subtitle: 'Big Dreams!',
     description: "India's most joyful storytelling platform for children. Share your stories, compete with peers, and win exciting awards.",
-    image: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=1600&q=80&auto=format&fit=crop',
-    accent: 'red',
+    image: slide1,
   },
   {
     id: 2,
     title: 'Unleash Your',
     subtitle: 'Creativity!',
     description: 'Join thousands of young storytellers in exciting competitions and workshops.',
-    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?w=1200&q=80',
-    accent: 'yellow',
+    image: slide2,
   },
   {
     id: 3,
     title: 'Every Story',
     subtitle: 'Matters!',
     description: 'From fairy tales to adventures, every story has the power to inspire and transform.',
-    image: 'https://images.unsplash.com/photo-1509023464722-18d996393ca8?w=1200&q=80',
-    accent: 'gold',
+    image: slide3,
   },
 ];
 
@@ -56,107 +56,118 @@ export const HeroSection = () => {
   const slide = heroSlides[currentSlide];
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background Images Carousel */}
-      <div className="absolute inset-0">
-        {heroSlides.map((s, index) => (
-          <div
-            key={s.id}
-            className={cn(
-              'absolute inset-0 transition-all duration-700 ease-in-out',
-              index === currentSlide
-                ? 'opacity-100 scale-100'
-                : 'opacity-0 scale-110'
-            )}
-          >
-            <img
-              src={s.image}
-              alt={s.title}
-              className="w-full h-full object-cover"
-            />
-            {/* Dark overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/60" />
-          </div>
-        ))}
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-gold/10 rounded-full blur-3xl" />
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 relative z-10 max-w-4xl pt-[120px] md:pt-[120px]">
-        <div className="space-y-8 text-center">
-          <div key={currentSlide} className="animate-fade-in">
-            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-tight text-white drop-shadow-lg">
-              <span>{slide.title}</span>
-              <br />
-              <span className="text-gradient bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 via-yellow-300 to-yellow-500 drop-shadow-lg">
-                {slide.subtitle}
-              </span>
-            </h1>
+      <div className="container mx-auto px-4 relative z-10 pt-[140px] md:pt-[120px] pb-12">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          {/* Left Content */}
+          <div className="space-y-8 text-left order-2 lg:order-1">
+            <div key={currentSlide} className="animate-fade-in">
+              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-foreground">
+                <span>{slide.title}</span>
+                <br />
+                <span className="text-gradient bg-clip-text text-transparent bg-gradient-to-r from-primary via-red-500 to-gold">
+                  {slide.subtitle}
+                </span>
+              </h1>
+            </div>
+            <p
+              key={`desc-${currentSlide}`}
+              className="text-lg md:text-xl text-muted-foreground max-w-xl animate-fade-in"
+              style={{ animationDelay: '0.1s' }}
+            >
+              {slide.description}
+            </p>
+            <div
+              className="flex flex-col sm:flex-row gap-4 animate-fade-in"
+              style={{ animationDelay: '0.2s' }}
+            >
+              <Link to="/register">
+                <Button variant="hero" size="xl" className="shadow-xl">
+                  Register Now
+                </Button>
+              </Link>
+              <Link to="/events">
+                <Button 
+                  variant="outline" 
+                  size="xl"
+                  className="border-primary/30 text-foreground hover:bg-primary/10 shadow-lg"
+                >
+                  View Competitions
+                </Button>
+              </Link>
+            </div>
+
+            {/* Dots Indicator */}
+            <div className="flex gap-2 pt-4">
+              {heroSlides.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setCurrentSlide(index);
+                    setIsAutoPlaying(false);
+                  }}
+                  className={cn(
+                    'h-2 rounded-full transition-all duration-300',
+                    index === currentSlide
+                      ? 'w-8 bg-primary shadow-lg'
+                      : 'w-2 bg-muted-foreground/40 hover:bg-muted-foreground/60'
+                  )}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
-          <p
-            key={`desc-${currentSlide}`}
-            className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto animate-fade-in drop-shadow-md"
-            style={{ animationDelay: '0.1s' }}
-          >
-            {slide.description}
-          </p>
-          <div
-            className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in"
-            style={{ animationDelay: '0.2s' }}
-          >
-            <Link to="/register">
-              <Button variant="hero" size="xl" className="shadow-xl">
-                Register Now
-              </Button>
-            </Link>
-            <Link to="/gallery">
-              <Button 
-                variant="outline" 
-                size="xl"
-                className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 shadow-xl"
+
+          {/* Right Slider */}
+          <div className="relative order-1 lg:order-2">
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
+              {heroSlides.map((s, index) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    'absolute inset-0 transition-all duration-700 ease-in-out',
+                    index === currentSlide
+                      ? 'opacity-100 scale-100'
+                      : 'opacity-0 scale-105'
+                  )}
+                >
+                  <img
+                    src={s.image}
+                    alt={s.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+
+              {/* Navigation Arrows */}
+              <button
+                onClick={prevSlide}
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
+                aria-label="Previous slide"
               >
-                View Competitions
-              </Button>
-            </Link>
+                <ChevronLeft className="w-5 h-5 text-foreground" />
+              </button>
+              <button
+                onClick={nextSlide}
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
+                aria-label="Next slide"
+              >
+                <ChevronRight className="w-5 h-5 text-foreground" />
+              </button>
+            </div>
+
+            {/* Decorative frame */}
+            <div className="absolute -inset-4 border-2 border-primary/20 rounded-3xl -z-10" />
+            <div className="absolute -inset-8 border border-gold/10 rounded-[2rem] -z-20" />
           </div>
         </div>
       </div>
-
-      {/* Navigation Arrows */}
-      <button
-        onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shadow-lg flex items-center justify-center hover:bg-white/20 hover:scale-110 transition-all"
-        aria-label="Previous slide"
-      >
-        <ChevronLeft className="w-6 h-6 text-white" />
-      </button>
-      <button
-        onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 shadow-lg flex items-center justify-center hover:bg-white/20 hover:scale-110 transition-all"
-        aria-label="Next slide"
-      >
-        <ChevronRight className="w-6 h-6 text-white" />
-      </button>
-
-      {/* Dots Indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-        {heroSlides.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => {
-              setCurrentSlide(index);
-              setIsAutoPlaying(false);
-            }}
-            className={cn(
-              'h-2 rounded-full transition-all duration-300',
-              index === currentSlide
-                ? 'w-8 bg-white shadow-lg'
-                : 'w-2 bg-white/60 hover:bg-white/80'
-            )}
-            aria-label={`Go to slide ${index + 1}`}
-          />
-        ))}
-      </div>
-
     </section>
   );
 };
