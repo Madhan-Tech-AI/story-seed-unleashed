@@ -1,37 +1,65 @@
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Youtube, Mail, Phone, MapPin } from 'lucide-react';
-
 const footerLinks = {
-  quickLinks: [
-    { name: 'Home', path: '/' },
-    { name: 'About Us', path: '/about' },
-    { name: 'Events', path: '/events' },
-    { name: 'Gallery', path: '/gallery' },
-    { name: 'Leaderboard', path: '/leaderboard' },
-    { name: 'Contact', path: '/contact' },
-  ],
-  legal: [
-    { name: 'Terms & Conditions', path: '/terms' },
-    { name: 'Privacy Policy', path: '/privacy' },
-    { name: 'FAQ', path: '/faq' },
-  ],
-  portals: [
-    { name: 'User Portal', path: '/user' },
-    { name: 'Judge Portal', path: '/judge' },
-    { name: 'Admin Portal', path: '/admin' },
-  ],
+  quickLinks: [{
+    name: 'Home',
+    path: '/'
+  }, {
+    name: 'About Us',
+    path: '/about'
+  }, {
+    name: 'Events',
+    path: '/events'
+  }, {
+    name: 'Gallery',
+    path: '/gallery'
+  }, {
+    name: 'Leaderboard',
+    path: '/leaderboard'
+  }, {
+    name: 'Contact',
+    path: '/contact'
+  }],
+  legal: [{
+    name: 'Terms & Conditions',
+    path: '/terms'
+  }, {
+    name: 'Privacy Policy',
+    path: '/privacy'
+  }, {
+    name: 'FAQ',
+    path: '/faq'
+  }],
+  portals: [{
+    name: 'User Portal',
+    path: '/user'
+  }, {
+    name: 'Judge Portal',
+    path: '/judge'
+  }, {
+    name: 'Admin Portal',
+    path: '/admin'
+  }]
 };
-
-const socialLinks = [
-  { icon: Facebook, href: '#', label: 'Facebook' },
-  { icon: Twitter, href: '#', label: 'Twitter' },
-  { icon: Instagram, href: '#', label: 'Instagram' },
-  { icon: Youtube, href: '#', label: 'YouTube' },
-];
-
+const socialLinks = [{
+  icon: Facebook,
+  href: '#',
+  label: 'Facebook'
+}, {
+  icon: Twitter,
+  href: '#',
+  label: 'Twitter'
+}, {
+  icon: Instagram,
+  href: '#',
+  label: 'Instagram'
+}, {
+  icon: Youtube,
+  href: '#',
+  label: 'YouTube'
+}];
 export const Footer = () => {
-  return (
-    <footer className="bg-charcoal text-primary-foreground">
+  return <footer className="bg-charcoal text-primary-foreground">
       <div className="container mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Brand */}
@@ -51,16 +79,9 @@ export const Footer = () => {
               India's most joyful storytelling platform for children. Share your stories, compete with peers, and win exciting awards.
             </p>
             <div className="flex gap-3">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary hover:scale-110 transition-all duration-300"
-                >
+              {socialLinks.map(social => <a key={social.label} href={social.href} aria-label={social.label} className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-primary hover:scale-110 transition-all duration-300">
                   <social.icon className="w-5 h-5" />
-                </a>
-              ))}
+                </a>)}
             </div>
           </div>
 
@@ -68,16 +89,11 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-lg mb-4">Quick Links</h4>
             <ul className="space-y-2">
-              {footerLinks.quickLinks.map((link) => (
-                <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className="text-primary-foreground/70 hover:text-primary transition-colors text-sm"
-                  >
+              {footerLinks.quickLinks.map(link => <li key={link.path}>
+                  <Link to={link.path} className="text-primary-foreground/70 hover:text-primary transition-colors text-sm">
                     {link.name}
                   </Link>
-                </li>
-              ))}
+                </li>)}
             </ul>
           </div>
 
@@ -85,29 +101,14 @@ export const Footer = () => {
           <div>
             <h4 className="font-display font-semibold text-lg mb-4">Legal</h4>
             <ul className="space-y-2 mb-6">
-              {footerLinks.legal.map((link) => (
-                <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className="text-primary-foreground/70 hover:text-primary transition-colors text-sm"
-                  >
-                    {link.name}
+              {footerLinks.legal.map(link => <li key={link.path}>
+                  <Link to={link.path} className="text-primary-foreground/70 hover:text-primary transition-colors text-sm">{link.name}
                   </Link>
-                </li>
-              ))}
+                </li>)}
             </ul>
-            <h4 className="font-display font-semibold text-lg mb-4">Portals</h4>
+            
             <ul className="space-y-2">
-              {footerLinks.portals.map((link) => (
-                <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className="text-primary-foreground/70 hover:text-secondary transition-colors text-sm"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
+              {footerLinks.portals.map(link => {})}
             </ul>
           </div>
 
@@ -143,6 +144,5 @@ export const Footer = () => {
           </p>
         </div>
       </div>
-    </footer>
-  );
+    </footer>;
 };
