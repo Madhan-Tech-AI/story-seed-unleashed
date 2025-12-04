@@ -9,112 +9,180 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const pendingSubmissions = [
-  {
-    id: 1,
-    eventName: 'The Magical Garden',
-    participants: [
-      {
-        id: 1,
-        name: 'Ananya Sharma',
-        storyTitle: 'The Magical Garden',
-        age: 10,
-        category: 'Fantasy',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=AS',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      },
-      {
-        id: 2,
-        name: 'Rohan Verma',
-        storyTitle: 'Secret of the Red Flower',
-        age: 11,
-        category: 'Fantasy',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=RV',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-      },
-    ],
-  },
-  {
-    id: 2,
-    eventName: 'Robot Friends',
-    participants: [
-      {
-        id: 3,
-        name: 'Vikram Patel',
-        storyTitle: 'Robot Friends',
-        age: 12,
-        category: 'Sci-Fi',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=VP',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-      },
-      {
-        id: 4,
-        name: 'Sara Khan',
-        storyTitle: 'Circuits of Friendship',
-        age: 13,
-        category: 'Sci-Fi',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=SK',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-      },
-    ],
-  },
-  {
-    id: 3,
-    eventName: 'Monsoon Magic',
-    participants: [
-      {
-        id: 5,
-        name: 'Priya Rao',
-        storyTitle: 'Monsoon Magic',
-        age: 9,
-        category: 'Adventure',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=PR',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-      },
-      {
-        id: 6,
-        name: 'Kunal Mehta',
-        storyTitle: 'Rainy Day Quest',
-        age: 10,
-        category: 'Adventure',
-        photo: 'https://api.dicebear.com/8.x/initials/svg?seed=KM',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-      },
-    ],
-  },
-];
-
-const recentReviews = [
-  { id: 1, title: 'Adventures in Space', score: 8.5, status: 'Approved' },
-  { id: 2, title: 'The Lost Kingdom', score: 7.2, status: 'Approved' },
-  { id: 3, title: 'Funny Stories', score: 5.0, status: 'Rejected' },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 type Participant = {
-  id: number;
+  id: string;
   name: string;
   storyTitle: string;
   age: number;
   category: string;
   photo: string;
   videoUrl: string;
+  registrationId: string;
+};
+
+type EventWithParticipants = {
+  id: string;
+  eventName: string;
+  participants: Participant[];
+};
+
+type RecentReview = {
+  id: string;
+  title: string;
+  score: number;
+  status: string;
+  created_at: string;
 };
 
 const JudgeDashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] =
-    useState<(typeof pendingSubmissions)[number] | null>(null);
+  const [selectedSubmission, setSelectedSubmission] = useState<EventWithParticipants | null>(null);
   const [isVotingOpen, setIsVotingOpen] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<Participant | null>(null);
-  const [voteScore, setVoteScore] = useState([50]); // 0-100 for slider, displayed as 0-10
+  const [voteScore, setVoteScore] = useState([50]);
   const [videoProgress, setVideoProgress] = useState([0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('1');
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const handleOpenParticipants = (submission: (typeof pendingSubmissions)[number]) => {
+  // Real-time stats
+  const [pendingReviews, setPendingReviews] = useState(0);
+  const [reviewedToday, setReviewedToday] = useState(0);
+  const [totalReviews, setTotalReviews] = useState(0);
+  const [avgScore, setAvgScore] = useState('0.0');
+  const [pendingSubmissions, setPendingSubmissions] = useState<EventWithParticipants[]>([]);
+  const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchJudgeStats = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Get all votes by this judge
+      const { data: votes, error: votesError } = await supabase
+        .from('votes')
+        .select('id, score, created_at, registration_id')
+        .eq('user_id', user.id);
+
+      if (votesError) throw votesError;
+
+      // Calculate stats
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const todayVotes = votes?.filter(v => new Date(v.created_at) >= today) || [];
+      const totalVotes = votes?.length || 0;
+      const avgScoreCalc = totalVotes > 0 
+        ? (votes?.reduce((sum, v) => sum + v.score, 0) || 0) / totalVotes 
+        : 0;
+
+      setReviewedToday(todayVotes.length);
+      setTotalReviews(totalVotes);
+      setAvgScore(avgScoreCalc.toFixed(1));
+
+      // Get voted registration IDs
+      const votedRegistrationIds = votes?.map(v => v.registration_id) || [];
+
+      // Get all registrations count for pending
+      const { count: totalRegistrations } = await supabase
+        .from('registrations')
+        .select('id', { count: 'exact', head: true });
+
+      setPendingReviews((totalRegistrations || 0) - votedRegistrationIds.length);
+
+      // Get recent reviews with registration details
+      const recentVoteIds = votes?.slice(-5).map(v => v.registration_id) || [];
+      if (recentVoteIds.length > 0) {
+        const { data: recentRegs } = await supabase
+          .from('registrations')
+          .select('id, story_title')
+          .in('id', recentVoteIds);
+
+        const recentReviewsData = votes?.slice(-5).reverse().map(v => {
+          const reg = recentRegs?.find(r => r.id === v.registration_id);
+          return {
+            id: v.id,
+            title: reg?.story_title || 'Unknown Story',
+            score: v.score,
+            status: v.score >= 5 ? 'Approved' : 'Rejected',
+            created_at: v.created_at
+          };
+        }) || [];
+
+        setRecentReviews(recentReviewsData);
+      }
+
+      // Fetch events with pending registrations (not yet voted by this judge)
+      const { data: events } = await supabase
+        .from('events')
+        .select('id, name')
+        .eq('is_active', true);
+
+      if (events) {
+        const eventsWithParticipants: EventWithParticipants[] = [];
+
+        for (const event of events) {
+          const { data: registrations } = await supabase
+            .from('registrations')
+            .select('id, first_name, last_name, story_title, age, category, yt_link')
+            .eq('event_id', event.id);
+
+          const pendingParticipants = registrations?.filter(
+            reg => !votedRegistrationIds.includes(reg.id)
+          ) || [];
+
+          if (pendingParticipants.length > 0) {
+            eventsWithParticipants.push({
+              id: event.id,
+              eventName: event.name,
+              participants: pendingParticipants.map(p => ({
+                id: p.id,
+                name: `${p.first_name} ${p.last_name}`,
+                storyTitle: p.story_title,
+                age: p.age,
+                category: p.category,
+                photo: `https://api.dicebear.com/8.x/initials/svg?seed=${p.first_name}${p.last_name}`,
+                videoUrl: p.yt_link || '',
+                registrationId: p.id
+              }))
+            });
+          }
+        }
+
+        setPendingSubmissions(eventsWithParticipants);
+      }
+    } catch (error) {
+      console.error('Error fetching judge stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJudgeStats();
+
+    // Real-time subscription for votes
+    const channel = supabase
+      .channel('judge-dashboard-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
+        fetchJudgeStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
+        fetchJudgeStats();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  const handleOpenParticipants = (submission: EventWithParticipants) => {
     setSelectedSubmission(submission);
     setIsParticipantsOpen(true);
   };
@@ -122,8 +190,38 @@ const JudgeDashboard = () => {
   const handleOpenVoting = (participant: Participant) => {
     setSelectedParticipant(participant);
     setIsVotingOpen(true);
-    setVoteScore([50]); // Default to 5/10
+    setVoteScore([50]);
     setVideoProgress([0]);
+  };
+
+  const handleSubmitVote = async () => {
+    if (!user?.id || !selectedParticipant) return;
+
+    const score = Math.round((voteScore[0] / 100) * 10);
+
+    try {
+      const { error } = await supabase.from('votes').insert({
+        user_id: user.id,
+        registration_id: selectedParticipant.registrationId,
+        score
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Vote Submitted!',
+        description: `You gave a score of ${score}/10`
+      });
+
+      setIsVotingOpen(false);
+      fetchJudgeStats();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to submit vote',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handlePlayPause = () => {
@@ -182,6 +280,17 @@ const JudgeDashboard = () => {
     };
   }, [selectedParticipant]);
 
+  // Helper to extract YouTube embed URL
+  const getVideoEmbedUrl = (url: string) => {
+    if (!url) return '';
+    // Handle YouTube URLs
+    const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/);
+    if (ytMatch) {
+      return `https://www.youtube.com/embed/${ytMatch[1]}`;
+    }
+    return url;
+  };
+
   return (
     <div className="space-y-6 page-enter">
       {/* Welcome */}
@@ -190,7 +299,9 @@ const JudgeDashboard = () => {
           Welcome, Judge {user?.name?.split(' ')[0]}! ⚖️
         </h1>
         <p className="text-secondary-foreground/80">
-          You have pending submissions awaiting your review.
+          {pendingReviews > 0 
+            ? `You have ${pendingReviews} pending submissions awaiting your review.`
+            : 'All caught up! No pending submissions.'}
         </p>
       </div>
 
@@ -198,31 +309,31 @@ const JudgeDashboard = () => {
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="Pending Reviews"
-          value={12}
+          value={pendingReviews}
           icon={Clock}
           iconColor="text-secondary"
-          change="3 urgent"
-          changeType="neutral"
+          change={pendingReviews > 3 ? `${Math.min(pendingReviews, 3)} urgent` : 'Up to date'}
+          changeType={pendingReviews > 3 ? 'negative' : 'positive'}
         />
         <StatsCard
           title="Reviewed Today"
-          value={8}
+          value={reviewedToday}
           icon={CheckCircle}
           iconColor="text-primary"
-          change="+5 from yesterday"
-          changeType="positive"
+          change={reviewedToday > 0 ? `+${reviewedToday} today` : 'None yet'}
+          changeType={reviewedToday > 0 ? 'positive' : 'neutral'}
         />
         <StatsCard
           title="Total Reviews"
-          value={156}
+          value={totalReviews}
           icon={FileText}
           iconColor="text-accent"
-          change="This month"
+          change="All time"
           changeType="neutral"
         />
         <StatsCard
           title="Avg. Score Given"
-          value="7.4"
+          value={avgScore}
           icon={Star}
           iconColor="text-secondary"
           change="Out of 10"
@@ -242,26 +353,35 @@ const JudgeDashboard = () => {
             </Link>
           </div>
           <div className="space-y-4">
-            {pendingSubmissions.map((submission) => (
-              <div
-                key={submission.id}
-                className="flex items-center justify-between p-4 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
-              >
-                <div>
-                  <p className="font-medium text-foreground">{submission.eventName}</p>
+            {loading ? (
+              <p className="text-muted-foreground text-sm">Loading...</p>
+            ) : pendingSubmissions.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No pending submissions</p>
+            ) : (
+              pendingSubmissions.slice(0, 3).map((submission) => (
+                <div
+                  key={submission.id}
+                  className="flex items-center justify-between p-4 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{submission.eventName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {submission.participants.length} participant(s)
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => handleOpenParticipants(submission)}
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    onClick={() => handleOpenParticipants(submission)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
           <Link to="/judge/dashboard/voting" className="block mt-4">
             <Button variant="hero" className="w-full">
@@ -282,28 +402,32 @@ const JudgeDashboard = () => {
             </Link>
           </div>
           <div className="space-y-4">
-            {recentReviews.map((review) => (
-              <div
-                key={review.id}
-                className="flex items-center justify-between p-4 bg-muted/50 rounded-xl"
-              >
-                <div>
-                  <p className="font-medium text-foreground">{review.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Score: {review.score}/10
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    review.status === 'Approved'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
-                  }`}
+            {recentReviews.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No reviews yet</p>
+            ) : (
+              recentReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="flex items-center justify-between p-4 bg-muted/50 rounded-xl"
                 >
-                  {review.status}
-                </span>
-              </div>
-            ))}
+                  <div>
+                    <p className="font-medium text-foreground">{review.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Score: {review.score}/10
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      review.status === 'Approved'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {review.status}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -349,7 +473,7 @@ const JudgeDashboard = () => {
                   type="button"
                   onClick={() => handleOpenVoting(participant)}
                 >
-                  View
+                  Vote
                 </Button>
               </div>
             ))}
@@ -374,76 +498,89 @@ const JudgeDashboard = () => {
           {selectedParticipant && (
             <div className="space-y-6 mt-4">
               {/* Video Section */}
-              <div className="relative w-full bg-black rounded-xl overflow-hidden">
-                <video
-                  ref={videoRef}
-                  src={selectedParticipant.videoUrl}
-                  className="w-full h-auto"
-                  onLoadedMetadata={() => {
-                    if (videoRef.current) {
-                      setVideoProgress([0]);
-                    }
-                  }}
-                />
-                
-                {/* Video Controls Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                  {/* Seek Bar */}
-                  <div className="mb-3">
-                    <Slider
-                      value={videoProgress}
-                      onValueChange={handleSeek}
-                      max={100}
-                      step={0.1}
-                      className="w-full"
+              <div className="relative w-full bg-black rounded-xl overflow-hidden aspect-video">
+                {selectedParticipant.videoUrl ? (
+                  selectedParticipant.videoUrl.includes('youtube') || selectedParticipant.videoUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={getVideoEmbedUrl(selectedParticipant.videoUrl)}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
                     />
+                  ) : (
+                    <>
+                      <video
+                        ref={videoRef}
+                        src={selectedParticipant.videoUrl}
+                        className="w-full h-full object-contain"
+                        onLoadedMetadata={() => {
+                          if (videoRef.current) {
+                            setVideoProgress([0]);
+                          }
+                        }}
+                      />
+                      {/* Video Controls Overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                        <div className="mb-3">
+                          <Slider
+                            value={videoProgress}
+                            onValueChange={handleSeek}
+                            max={100}
+                            step={0.1}
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handlePlayPause}
+                              className="bg-background/90 hover:bg-background"
+                            >
+                              {isPlaying ? (
+                                <Pause className="w-4 h-4 text-foreground" />
+                              ) : (
+                                <Play className="w-4 h-4 text-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={handleFullscreen}
+                              className="bg-background/90 hover:bg-background"
+                            >
+                              <Maximize className="w-4 h-4 text-foreground" />
+                            </Button>
+                            <Select value={playbackSpeed} onValueChange={handleSpeedChange}>
+                              <SelectTrigger className="w-20 h-8 bg-background/90 border-border/60">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="0.5">0.5x</SelectItem>
+                                <SelectItem value="0.75">0.75x</SelectItem>
+                                <SelectItem value="1">1x</SelectItem>
+                                <SelectItem value="1.25">1.25x</SelectItem>
+                                <SelectItem value="1.5">1.5x</SelectItem>
+                                <SelectItem value="2">2x</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="text-sm text-white/80">
+                            {videoRef.current &&
+                              `${Math.floor(videoRef.current.currentTime || 0)}s / ${Math.floor(
+                                videoRef.current.duration || 0
+                              )}s`}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                    No video available
                   </div>
-
-                  {/* Control Buttons */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handlePlayPause}
-                        className="bg-background/90 hover:bg-background"
-                      >
-                        {isPlaying ? (
-                          <Pause className="w-4 h-4 text-foreground" />
-                        ) : (
-                          <Play className="w-4 h-4 text-foreground" />
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={handleFullscreen}
-                        className="bg-background/90 hover:bg-background"
-                      >
-                        <Maximize className="w-4 h-4 text-foreground" />
-                      </Button>
-                      <Select value={playbackSpeed} onValueChange={handleSpeedChange}>
-                        <SelectTrigger className="w-20 h-8 bg-background/90 border-border/60">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0.5">0.5x</SelectItem>
-                          <SelectItem value="0.75">0.75x</SelectItem>
-                          <SelectItem value="1">1x</SelectItem>
-                          <SelectItem value="1.25">1.25x</SelectItem>
-                          <SelectItem value="1.5">1.5x</SelectItem>
-                          <SelectItem value="2">2x</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="text-sm text-white/80">
-                      {videoRef.current &&
-                        `${Math.floor(videoRef.current.currentTime || 0)}s / ${Math.floor(
-                          videoRef.current.duration || 0
-                        )}s`}
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Participant Details */}
@@ -480,7 +617,7 @@ const JudgeDashboard = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Score:</span>
                     <span className="text-lg font-semibold text-primary">
-                      {((voteScore[0] / 100) * 10).toFixed(1)}/10
+                      {Math.round((voteScore[0] / 100) * 10)}/10
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
@@ -489,7 +626,7 @@ const JudgeDashboard = () => {
                     <span>10</span>
                   </div>
                 </div>
-                <Button variant="hero" className="w-full mt-4">
+                <Button variant="hero" className="w-full mt-4" onClick={handleSubmitVote}>
                   Submit Vote
                   <Vote className="w-4 h-4" />
                 </Button>
