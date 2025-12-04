@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Edit2, Image as ImageIcon, Upload, X, Star, Calendar, Users } from 'lucide-react';
+import { Plus, Trash2, Edit2, Image as ImageIcon, Upload, X, Star, Calendar, Users, Images } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,7 @@ interface GalleryItem {
   participants: number | null;
   featured: boolean;
   created_at: string;
+  event_images: string[] | null;
 }
 
 const AdminGallery = () => {
@@ -30,7 +31,9 @@ const AdminGallery = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingEventImages, setUploadingEventImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const eventImagesInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -40,6 +43,7 @@ const AdminGallery = () => {
     event_date: '',
     participants: '',
     featured: false,
+    event_images: [] as string[],
   });
 
   const fetchItems = async () => {
@@ -93,7 +97,7 @@ const AdminGallery = () => {
         .getPublicUrl(filePath);
 
       setFormData(prev => ({ ...prev, image_url: publicUrl }));
-      toast.success('Image uploaded successfully');
+      toast.success('Thumbnail uploaded successfully');
     } catch (error) {
       console.error('Error uploading image:', error);
       toast.error('Failed to upload image');
@@ -102,11 +106,60 @@ const AdminGallery = () => {
     }
   };
 
+  const handleEventImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingEventImages(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const file of Array.from(files)) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `activities/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('event-activity-images')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('event-activity-images')
+          .getPublicUrl(filePath);
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        event_images: [...prev.event_images, ...uploadedUrls],
+      }));
+      toast.success(`${uploadedUrls.length} event image(s) uploaded`);
+    } catch (error) {
+      console.error('Error uploading event images:', error);
+      toast.error('Failed to upload some event images');
+    } finally {
+      setUploadingEventImages(false);
+      if (eventImagesInputRef.current) {
+        eventImagesInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeEventImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      event_images: prev.event_images.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title || !formData.image_url) {
-      toast.error('Title and image are required');
+      toast.error('Title and thumbnail image are required');
       return;
     }
 
@@ -119,6 +172,7 @@ const AdminGallery = () => {
         event_date: formData.event_date || null,
         participants: formData.participants ? parseInt(formData.participants) : null,
         featured: formData.featured,
+        event_images: formData.event_images,
       };
 
       if (editingItem) {
@@ -173,6 +227,7 @@ const AdminGallery = () => {
       event_date: item.event_date || '',
       participants: item.participants?.toString() || '',
       featured: item.featured,
+      event_images: item.event_images || [],
     });
     setDialogOpen(true);
   };
@@ -187,6 +242,7 @@ const AdminGallery = () => {
       event_date: '',
       participants: '',
       featured: false,
+      event_images: [],
     });
   };
 
@@ -209,7 +265,7 @@ const AdminGallery = () => {
               Add Image
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingItem ? 'Edit Gallery Item' : 'Add Gallery Item'}</DialogTitle>
             </DialogHeader>
@@ -253,8 +309,15 @@ const AdminGallery = () => {
                 </Select>
               </div>
 
-              <div>
-                <Label>Image *</Label>
+              {/* Thumbnail Image Upload */}
+              <div className="p-4 border border-border rounded-lg bg-muted/30">
+                <Label className="flex items-center gap-2 mb-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Thumbnail Image *
+                </Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Main image displayed in the gallery grid
+                </p>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -263,10 +326,10 @@ const AdminGallery = () => {
                   className="hidden"
                 />
                 {formData.image_url ? (
-                  <div className="relative mt-2">
+                  <div className="relative">
                     <img
                       src={formData.image_url}
-                      alt="Preview"
+                      alt="Thumbnail Preview"
                       className="w-full h-40 object-cover rounded-lg"
                     />
                     <Button
@@ -283,7 +346,7 @@ const AdminGallery = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full mt-2"
+                    className="w-full"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                   >
@@ -292,8 +355,70 @@ const AdminGallery = () => {
                     ) : (
                       <Upload className="w-4 h-4 mr-2" />
                     )}
-                    {uploading ? 'Uploading...' : 'Upload Image'}
+                    {uploading ? 'Uploading...' : 'Upload Thumbnail'}
                   </Button>
+                )}
+              </div>
+
+              {/* Event Activity Images Upload */}
+              <div className="p-4 border border-border rounded-lg bg-muted/30">
+                <Label className="flex items-center gap-2 mb-2">
+                  <Images className="w-4 h-4" />
+                  Event Activity Images
+                </Label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Additional images showing activities, awards, performances, etc.
+                </p>
+                <input
+                  type="file"
+                  ref={eventImagesInputRef}
+                  onChange={handleEventImagesUpload}
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                />
+                
+                {formData.event_images.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {formData.event_images.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Event image ${index + 1}`}
+                          className="w-full h-20 object-cover rounded-lg"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeEventImage(index)}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => eventImagesInputRef.current?.click()}
+                  disabled={uploadingEventImages}
+                >
+                  {uploadingEventImages ? (
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  {uploadingEventImages ? 'Uploading...' : 'Upload Event Images'}
+                </Button>
+                {formData.event_images.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center">
+                    {formData.event_images.length} image(s) added
+                  </p>
                 )}
               </div>
 
@@ -365,6 +490,12 @@ const AdminGallery = () => {
                 <span className="absolute top-2 right-2 px-2 py-1 bg-background/90 text-xs font-semibold rounded-full">
                   {item.category}
                 </span>
+                {item.event_images && item.event_images.length > 0 && (
+                  <span className="absolute bottom-2 right-2 px-2 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full flex items-center gap-1">
+                    <Images className="w-3 h-3" />
+                    +{item.event_images.length}
+                  </span>
+                )}
               </div>
               <div className="p-4 space-y-2">
                 <h3 className="font-semibold text-foreground line-clamp-1">{item.title}</h3>

@@ -200,6 +200,7 @@ export type Database = {
           created_at: string
           description: string | null
           event_date: string | null
+          event_images: string[] | null
           featured: boolean | null
           id: string
           image_url: string
@@ -212,6 +213,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           event_date?: string | null
+          event_images?: string[] | null
           featured?: boolean | null
           id?: string
           image_url: string
@@ -224,6 +226,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           event_date?: string | null
+          event_images?: string[] | null
           featured?: boolean | null
           id?: string
           image_url?: string
