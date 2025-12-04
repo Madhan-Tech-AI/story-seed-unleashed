@@ -12,10 +12,10 @@ interface LeaderboardEntry {
   last_name: string;
   age: number;
   category: string;
-  overall_views: number;
   user_id: string | null;
   event_id: string | null;
-  vote_count: number;
+  average_score: number;
+  total_reviews: number;
 }
 
 interface Event {
@@ -44,7 +44,7 @@ const JudgeLeaderboard = () => {
       
       let query = supabase
         .from('registrations')
-        .select('id, story_title, first_name, last_name, age, category, overall_views, user_id, event_id');
+        .select('id, story_title, first_name, last_name, age, category, user_id, event_id');
       
       if (selectedEvent !== 'all') {
         query = query.eq('event_id', selectedEvent);
@@ -53,10 +53,12 @@ const JudgeLeaderboard = () => {
       const { data: registrations, error } = await query;
       if (error) throw error;
 
+      // Fetch all votes with scores
       const { data: votes } = await supabase
         .from('votes')
         .select('registration_id, user_id, score');
 
+      // Fetch judge user IDs
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -67,19 +69,28 @@ const JudgeLeaderboard = () => {
           .map(ur => ur.user_id)
       );
 
-      const voteCounts: Record<string, number> = {};
+      // Calculate average scores from judge votes only
+      const scoreData: Record<string, { total: number; count: number }> = {};
       (votes || []).forEach(vote => {
         if (judgeUserIds.has(vote.user_id)) {
-          voteCounts[vote.registration_id] = (voteCounts[vote.registration_id] || 0) + 1;
+          if (!scoreData[vote.registration_id]) {
+            scoreData[vote.registration_id] = { total: 0, count: 0 };
+          }
+          scoreData[vote.registration_id].total += vote.score;
+          scoreData[vote.registration_id].count += 1;
         }
       });
 
-      const entriesWithVotes = (registrations || []).map(reg => ({
-        ...reg,
-        vote_count: voteCounts[reg.id] || 0,
-      }));
+      const entriesWithScores = (registrations || []).map(reg => {
+        const data = scoreData[reg.id];
+        return {
+          ...reg,
+          average_score: data ? parseFloat((data.total / data.count).toFixed(1)) : 0,
+          total_reviews: data ? data.count : 0,
+        };
+      });
 
-      setEntries(entriesWithVotes);
+      setEntries(entriesWithScores);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
@@ -114,7 +125,14 @@ const JudgeLeaderboard = () => {
     };
   }, [selectedEvent]);
 
-  const sortedEntries = [...entries].sort((a, b) => b.vote_count - a.vote_count);
+  // Sort by average score (highest first), then by total reviews as tiebreaker
+  const sortedEntries = [...entries]
+    .filter(e => e.total_reviews > 0)
+    .sort((a, b) => {
+      if (b.average_score !== a.average_score) return b.average_score - a.average_score;
+      return b.total_reviews - a.total_reviews;
+    });
+  
   const topThree = sortedEntries.slice(0, 3);
   const restEntries = sortedEntries.slice(3);
 
@@ -178,7 +196,7 @@ const JudgeLeaderboard = () => {
           </h1>
         </div>
         <p className="text-secondary-foreground/80">
-          Rankings based on judge evaluations - professional assessments of storytelling excellence
+          Rankings based on average judge scores (out of 10) - professional assessments of storytelling excellence
         </p>
       </div>
 
@@ -213,7 +231,7 @@ const JudgeLeaderboard = () => {
         <div className="bg-card p-12 rounded-2xl border border-border/50 text-center">
           <Trophy className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
           <h3 className="text-xl font-semibold text-foreground mb-2">No Entries Yet</h3>
-          <p className="text-muted-foreground">No judge votes have been submitted yet.</p>
+          <p className="text-muted-foreground">No judge reviews have been submitted yet.</p>
         </div>
       ) : (
         <>
@@ -274,13 +292,13 @@ const JudgeLeaderboard = () => {
 
                       <div className="flex items-center justify-center gap-4 mb-4">
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-foreground">{entry.vote_count}</p>
-                          <p className="text-xs text-muted-foreground">Judge Votes</p>
+                          <p className="text-3xl font-bold text-foreground">{entry.average_score}</p>
+                          <p className="text-xs text-muted-foreground">Avg Score /10</p>
                         </div>
                         <div className="w-px h-8 bg-border" />
                         <div className="text-center">
-                          <p className="text-2xl font-bold text-foreground">{entry.overall_views}</p>
-                          <p className="text-xs text-muted-foreground">Views</p>
+                          <p className="text-2xl font-bold text-foreground">{entry.total_reviews}</p>
+                          <p className="text-xs text-muted-foreground">Reviews</p>
                         </div>
                       </div>
 
@@ -324,8 +342,8 @@ const JudgeLeaderboard = () => {
                       <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground">Participant</th>
                       <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden md:table-cell">Story</th>
                       <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Category</th>
-                      <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground">Judge Votes</th>
-                      <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Views</th>
+                      <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground">Avg Score</th>
+                      <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Reviews</th>
                       <th className="text-right py-4 px-4 text-sm font-semibold text-muted-foreground">ID</th>
                     </tr>
                   </thead>
@@ -360,10 +378,10 @@ const JudgeLeaderboard = () => {
                             </span>
                           </td>
                           <td className="py-4 px-4 text-center">
-                            <span className="font-bold text-foreground">{entry.vote_count}</span>
+                            <span className="font-bold text-foreground">{entry.average_score}/10</span>
                           </td>
                           <td className="py-4 px-4 text-center hidden sm:table-cell">
-                            <span className="text-muted-foreground">{entry.overall_views}</span>
+                            <span className="text-muted-foreground">{entry.total_reviews}</span>
                           </td>
                           <td className="py-4 px-4 text-right">
                             {entry.user_id && (
