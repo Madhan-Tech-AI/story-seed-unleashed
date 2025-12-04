@@ -71,11 +71,13 @@ export const Navbar = () => {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center group">
-            <img 
-              src="/assets/logo.png" 
-              alt="Story Seed Studio" 
-              className="h-10 w-auto transition-transform group-hover:scale-105"
-            />
+            <div className="h-12 px-3 py-1 bg-primary rounded-lg flex items-center justify-center transition-transform group-hover:scale-105 shadow-md">
+              <img 
+                src="/assets/logo.png" 
+                alt="Story Seed Studio" 
+                className="h-8 w-auto"
+              />
+            </div>
           </Link>
 
           {/* Desktop Navigation */}
