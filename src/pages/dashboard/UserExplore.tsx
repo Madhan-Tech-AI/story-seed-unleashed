@@ -65,14 +65,21 @@ const UserExplore = () => {
   const [viewCount, setViewCount] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Fetch all registrations with stats
+  // Fetch top 3 from Judge Leaderboard and Community Leaderboard per event
   useEffect(() => {
-    const fetchRegistrations = async () => {
+    const fetchTopRegistrations = async () => {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      // Get all events
+      const { data: events } = await supabase
+        .from('events')
+        .select('id, name')
+        .eq('is_active', true);
+
+      // Get all registrations
+      const { data: allRegistrations, error } = await supabase
         .from('registrations')
-        .select('id, story_title, story_description, category, yt_link, user_id, first_name, last_name, created_at, overall_views, overall_votes')
-        .order('created_at', { ascending: false });
+        .select('id, story_title, story_description, category, yt_link, user_id, first_name, last_name, created_at, overall_views, overall_votes, event_id');
 
       if (error) {
         console.error('Error fetching registrations:', error);
@@ -80,9 +87,64 @@ const UserExplore = () => {
         return;
       }
 
-      // Fetch stats for each registration
+      // Get all votes with user roles to separate judge vs user votes
+      const { data: allVotes } = await supabase
+        .from('votes')
+        .select('registration_id, score, user_id');
+
+      // Get judge user IDs
+      const { data: judgeRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'judge');
+
+      const judgeUserIds = new Set(judgeRoles?.map(r => r.user_id) || []);
+
+      // Calculate scores for each registration
+      const registrationScores = new Map<string, { judgeAvg: number; userVotes: number; judgeCount: number }>();
+      
+      (allRegistrations || []).forEach(reg => {
+        const regVotes = (allVotes || []).filter(v => v.registration_id === reg.id);
+        const judgeVotes = regVotes.filter(v => judgeUserIds.has(v.user_id));
+        const userVotes = regVotes.filter(v => !judgeUserIds.has(v.user_id));
+        
+        const judgeAvg = judgeVotes.length > 0 
+          ? judgeVotes.reduce((sum, v) => sum + v.score, 0) / judgeVotes.length 
+          : 0;
+        
+        registrationScores.set(reg.id, {
+          judgeAvg,
+          userVotes: userVotes.length,
+          judgeCount: judgeVotes.length
+        });
+      });
+
+      const topRegistrationIds = new Set<string>();
+
+      // Get top 3 from each event for both leaderboards
+      (events || []).forEach(event => {
+        const eventRegs = (allRegistrations || []).filter(r => r.event_id === event.id);
+        
+        // Top 3 by Judge Average Score (only those with judge reviews)
+        const judgeTop = [...eventRegs]
+          .filter(r => (registrationScores.get(r.id)?.judgeCount || 0) > 0)
+          .sort((a, b) => (registrationScores.get(b.id)?.judgeAvg || 0) - (registrationScores.get(a.id)?.judgeAvg || 0))
+          .slice(0, 3);
+        
+        // Top 3 by User Votes (community)
+        const communityTop = [...eventRegs]
+          .sort((a, b) => (registrationScores.get(b.id)?.userVotes || 0) - (registrationScores.get(a.id)?.userVotes || 0))
+          .slice(0, 3);
+        
+        judgeTop.forEach(r => topRegistrationIds.add(r.id));
+        communityTop.forEach(r => topRegistrationIds.add(r.id));
+      });
+
+      // Filter to only top registrations and add stats
+      const topRegs = (allRegistrations || []).filter(r => topRegistrationIds.has(r.id));
+      
       const registrationsWithStats = await Promise.all(
-        (data || []).map(async (reg) => {
+        topRegs.map(async (reg) => {
           const [viewsRes, votesRes, commentsRes] = await Promise.all([
             supabase.from('views').select('id', { count: 'exact', head: true }).eq('registration_id', reg.id),
             supabase.from('votes').select('score').eq('registration_id', reg.id),
@@ -91,6 +153,7 @@ const UserExplore = () => {
 
           const votes = votesRes.data || [];
           const avgRating = votes.length > 0 ? votes.reduce((sum, v) => sum + v.score, 0) / votes.length : 0;
+          const scores = registrationScores.get(reg.id);
 
           return {
             ...reg,
@@ -98,15 +161,25 @@ const UserExplore = () => {
             vote_count: votes.length,
             comment_count: commentsRes.count || 0,
             average_rating: avgRating,
+            judge_avg: scores?.judgeAvg || 0,
+            user_votes: scores?.userVotes || 0,
           };
         })
       );
+
+      // Sort by judge average first, then user votes
+      registrationsWithStats.sort((a, b) => {
+        if ((b as any).judge_avg !== (a as any).judge_avg) {
+          return (b as any).judge_avg - (a as any).judge_avg;
+        }
+        return (b as any).user_votes - (a as any).user_votes;
+      });
 
       setRegistrations(registrationsWithStats);
       setIsLoading(false);
     };
 
-    fetchRegistrations();
+    fetchTopRegistrations();
   }, []);
 
   // Fetch votes and comments when a story is selected
@@ -406,9 +479,9 @@ const UserExplore = () => {
     <div className="space-y-6 page-enter">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Explore Stories</h1>
+          <h1 className="font-display text-2xl font-bold text-foreground">Featured Stories</h1>
           <p className="text-muted-foreground text-sm">
-            Watch and vote for stories from other storytellers.
+            Top 3 stories from Judge & Community Leaderboards across all events.
           </p>
         </div>
         <div className="relative w-full sm:w-80">
