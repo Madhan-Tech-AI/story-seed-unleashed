@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { usePreferences } from '@/contexts/PreferencesContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export const DashboardHeader = () => {
   const { user, role } = useAuth();
@@ -40,11 +41,12 @@ export const DashboardHeader = () => {
             onClick={() => navigate(`/${role}/dashboard/profile`)}
             className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted transition-colors"
           >
-            <img
-              src={user?.avatar}
-              alt={user?.name}
-              className="w-10 h-10 rounded-full object-cover border-2 border-primary/20"
-            />
+            <Avatar className="w-10 h-10 border-2 border-primary/20">
+              <AvatarImage src={user?.avatar} alt={user?.name} />
+              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
           </button>
         </div>
       </div>
