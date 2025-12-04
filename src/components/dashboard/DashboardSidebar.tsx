@@ -7,7 +7,6 @@ import {
   Calendar,
   Trophy,
   Users,
-  Vote,
   Settings,
   LogOut,
   FileText,
@@ -21,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Image,
+  X,
 } from 'lucide-react';
 
 interface NavItem {
@@ -32,6 +32,9 @@ interface NavItem {
 interface DashboardSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  isMobile?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
 // User Navigation with translation support
@@ -63,7 +66,13 @@ const adminNavItems: NavItem[] = [
   { name: 'Settings', path: '/admin/dashboard/settings', icon: Settings },
 ];
 
-export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps) => {
+export const DashboardSidebar = ({
+  collapsed,
+  onToggle,
+  isMobile = false,
+  isOpen = true,
+  onClose,
+}: DashboardSidebarProps) => {
   const { user, logout, role } = useAuth();
   const t = useT();
   const location = useLocation();
@@ -84,10 +93,27 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
   return (
     <aside
       className={cn(
-        'fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 z-50 flex flex-col',
-        collapsed ? 'w-20' : 'w-64'
+        'fixed left-0 top-0 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300 z-50 flex flex-col lg:translate-x-0',
+        isMobile
+          ? cn(
+              'w-64 transform',
+              isOpen ? 'translate-x-0' : '-translate-x-full',
+              'lg:w-64'
+            )
+          : collapsed
+          ? 'w-20'
+          : 'w-64'
       )}
     >
+      {isMobile && (
+        <button
+          onClick={onClose}
+          className="absolute right-3 top-3 w-8 h-8 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center lg:hidden"
+          aria-label="Close sidebar"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <Link to="/" className="flex items-center gap-3">
@@ -152,12 +178,15 @@ export const DashboardSidebar = ({ collapsed, onToggle }: DashboardSidebarProps)
       </div>
 
       {/* Collapse Toggle */}
-      <button
-        onClick={onToggle}
-        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-sidebar-primary text-sidebar-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-      >
-        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-      </button>
+      {!isMobile && (
+        <button
+          onClick={onToggle}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-sidebar-primary text-sidebar-primary-foreground rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+          aria-label="Collapse sidebar"
+        >
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+      )}
     </aside>
   );
 };
