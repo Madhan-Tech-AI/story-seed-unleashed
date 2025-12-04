@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Trophy, Calendar, Award, Medal, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
+import confetti from 'canvas-confetti';
 
 interface EventResult {
   id: string;
@@ -33,6 +34,41 @@ const UserResults = () => {
   const { user } = useAuth();
   const [results, setResults] = useState<EventResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const confettiTriggered = useRef(false);
+
+  const triggerConfetti = () => {
+    if (confettiTriggered.current) return;
+    confettiTriggered.current = true;
+
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+        colors: ['#FFD700', '#FFA500', '#FF6347', '#FFD700', '#FFDF00'],
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        colors: ['#FFD700', '#FFA500', '#FF6347', '#FFD700', '#FFDF00'],
+      });
+    }, 250);
+  };
 
   const fetchResults = async () => {
     if (!user) return;
@@ -124,6 +160,16 @@ const UserResults = () => {
       );
 
       setResults(resultsWithWinners);
+
+      // Check if user is a winner in any announced event
+      const isWinner = resultsWithWinners.some(
+        event => event.results_announced && 
+        (event.userPosition === 'winner' || event.userPosition === 'runner_up' || event.userPosition === 'second_runner_up')
+      );
+
+      if (isWinner) {
+        triggerConfetti();
+      }
     } catch (error) {
       console.error('Error fetching results:', error);
     } finally {
@@ -185,7 +231,12 @@ const UserResults = () => {
           {results.map((event) => (
             <div
               key={event.id}
-              className="bg-card rounded-2xl border border-border/50 p-6 card-hover"
+              className={`bg-card rounded-2xl border p-6 card-hover ${
+                event.results_announced && 
+                (event.userPosition === 'winner' || event.userPosition === 'runner_up' || event.userPosition === 'second_runner_up')
+                  ? 'border-yellow-500/50 ring-2 ring-yellow-500/20'
+                  : 'border-border/50'
+              }`}
             >
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                 <div>
