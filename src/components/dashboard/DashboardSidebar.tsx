@@ -20,6 +20,7 @@ import {
   Compass,
   ChevronLeft,
   ChevronRight,
+  Image,
 } from 'lucide-react';
 
 interface NavItem {
@@ -58,7 +59,7 @@ const adminNavItems: NavItem[] = [
   { name: 'Manage Users', path: '/admin/dashboard/users', icon: Users },
   { name: 'Voting Outcomes', path: '/admin/dashboard/outcomes', icon: BarChart3 },
   { name: 'Notifications', path: '/admin/dashboard/notifications', icon: Bell },
-  { name: 'Gallery', path: '/admin/dashboard/gallery', icon: Eye },
+  { name: 'Gallery', path: '/admin/dashboard/gallery', icon: Image },
   { name: 'Settings', path: '/admin/dashboard/settings', icon: Settings },
 ];
 
