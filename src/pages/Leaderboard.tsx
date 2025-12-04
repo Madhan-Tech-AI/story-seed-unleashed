@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Eye, TrendingUp, Trophy, Medal, Crown, Copy, Check, Flame, Star } from 'lucide-react';
+import { Eye, Trophy, Medal, Crown, Copy, Check, Star, Users, Gavel, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const leaderboardTabs = ['Leaderboard', 'Trending', 'Most Viewed'];
+const leaderboardTabs = ['Event Leaderboard', 'Judge Leaderboard'];
 
 interface LeaderboardEntry {
   id: string;
@@ -13,47 +14,84 @@ interface LeaderboardEntry {
   last_name: string;
   age: number;
   category: string;
-  overall_votes: number;
   overall_views: number;
   user_id: string | null;
-  trending_count?: number;
-  trending_score?: number;
+  event_id: string | null;
+  vote_count: number;
+}
+
+interface Event {
+  id: string;
+  name: string;
 }
 
 const Leaderboard = () => {
-  const [activeTab, setActiveTab] = useState('Leaderboard');
+  const [activeTab, setActiveTab] = useState('Event Leaderboard');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const fetchEvents = async () => {
+    const { data } = await supabase
+      .from('events')
+      .select('id, name')
+      .eq('is_active', true);
+    setEvents(data || []);
+  };
+
   const fetchLeaderboard = async () => {
     try {
+      setLoading(true);
+      
       // Fetch registrations
-      const { data: registrations, error } = await supabase
+      let query = supabase
         .from('registrations')
-        .select('id, story_title, first_name, last_name, age, category, overall_votes, overall_views, user_id');
-
+        .select('id, story_title, first_name, last_name, age, category, overall_views, user_id, event_id');
+      
+      if (selectedEvent !== 'all') {
+        query = query.eq('event_id', selectedEvent);
+      }
+      
+      const { data: registrations, error } = await query;
       if (error) throw error;
 
-      // Fetch trending interactions count for each registration
-      const { data: trendingData } = await supabase
-        .from('trending_interactions')
-        .select('registration_id');
+      // Fetch all votes with user roles
+      const { data: votes } = await supabase
+        .from('votes')
+        .select('registration_id, user_id, score');
 
-      // Count trending interactions per registration
-      const trendingCounts: Record<string, number> = {};
-      (trendingData || []).forEach((t) => {
-        trendingCounts[t.registration_id] = (trendingCounts[t.registration_id] || 0) + 1;
+      // Fetch user roles to identify judges
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      // Create a set of judge user_ids
+      const judgeUserIds = new Set(
+        (userRoles || [])
+          .filter(ur => ur.role === 'judge')
+          .map(ur => ur.user_id)
+      );
+
+      // Calculate votes based on tab
+      const isJudgeTab = activeTab === 'Judge Leaderboard';
+      const voteCounts: Record<string, number> = {};
+
+      (votes || []).forEach(vote => {
+        const isJudgeVote = judgeUserIds.has(vote.user_id);
+        
+        if ((isJudgeTab && isJudgeVote) || (!isJudgeTab && !isJudgeVote)) {
+          voteCounts[vote.registration_id] = (voteCounts[vote.registration_id] || 0) + 1;
+        }
       });
 
-      // Calculate trending score for each entry
-      const entriesWithTrending = (registrations || []).map((reg) => ({
+      const entriesWithVotes = (registrations || []).map(reg => ({
         ...reg,
-        trending_count: trendingCounts[reg.id] || 0,
-        trending_score: (trendingCounts[reg.id] || 0) * 2 + (reg.overall_votes || 0) * 0.5 + (reg.overall_views || 0) * 0.3,
+        vote_count: voteCounts[reg.id] || 0,
       }));
 
-      setEntries(entriesWithTrending);
+      setEntries(entriesWithVotes);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
@@ -62,75 +100,54 @@ const Leaderboard = () => {
   };
 
   useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  useEffect(() => {
     fetchLeaderboard();
 
-    const registrationsChannel = supabase
-      .channel('leaderboard-registrations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
-        fetchLeaderboard();
-      })
-      .subscribe();
-
-    const viewsChannel = supabase
-      .channel('leaderboard-views')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'views' }, () => {
-        fetchLeaderboard();
-      })
-      .subscribe();
-
     const votesChannel = supabase
-      .channel('leaderboard-votes')
+      .channel('leaderboard-votes-new')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
         fetchLeaderboard();
       })
       .subscribe();
 
-    const trendingChannel = supabase
-      .channel('leaderboard-trending')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'trending_interactions' }, () => {
+    const registrationsChannel = supabase
+      .channel('leaderboard-registrations-new')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
         fetchLeaderboard();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(registrationsChannel);
-      supabase.removeChannel(viewsChannel);
       supabase.removeChannel(votesChannel);
-      supabase.removeChannel(trendingChannel);
+      supabase.removeChannel(registrationsChannel);
     };
-  }, []);
+  }, [activeTab, selectedEvent]);
 
-  const getSortedEntries = () => {
-    const sorted = [...entries];
-    if (activeTab === 'Most Viewed') {
-      return sorted.sort((a, b) => (b.overall_views || 0) - (a.overall_views || 0));
-    }
-    if (activeTab === 'Trending') {
-      return sorted.sort((a, b) => (b.trending_score || 0) - (a.trending_score || 0));
-    }
-    return sorted.sort((a, b) => (b.overall_votes || 0) - (a.overall_votes || 0));
-  };
-
-  const sortedEntries = getSortedEntries();
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="w-5 h-5" />;
-    if (rank === 2) return <Medal className="w-5 h-5" />;
-    if (rank === 3) return <Medal className="w-5 h-5" />;
-    return <span className="font-bold text-lg">#{rank}</span>;
-  };
+  const sortedEntries = [...entries].sort((a, b) => b.vote_count - a.vote_count);
+  const topThree = sortedEntries.slice(0, 3);
+  const restEntries = sortedEntries.slice(3);
 
   const getRankStyle = (rank: number) => {
-    if (rank === 1) return 'from-yellow-400 to-amber-500 text-yellow-900 shadow-lg shadow-yellow-500/30';
-    if (rank === 2) return 'from-slate-300 to-slate-400 text-slate-800 shadow-lg shadow-slate-400/30';
-    if (rank === 3) return 'from-amber-500 to-orange-600 text-amber-900 shadow-lg shadow-amber-500/30';
+    if (rank === 1) return 'from-yellow-400 to-amber-500 text-yellow-900';
+    if (rank === 2) return 'from-slate-300 to-slate-400 text-slate-800';
+    if (rank === 3) return 'from-amber-600 to-orange-700 text-amber-100';
     return 'from-muted to-muted text-muted-foreground';
   };
 
-  const getCardBorder = (rank: number) => {
-    if (rank === 1) return 'border-yellow-400/50 shadow-lg shadow-yellow-500/10';
-    if (rank === 2) return 'border-slate-400/50 shadow-md shadow-slate-400/10';
-    if (rank === 3) return 'border-amber-500/50 shadow-md shadow-amber-500/10';
+  const getRankBadgeColor = (rank: number) => {
+    if (rank === 1) return 'bg-yellow-500 text-yellow-900';
+    if (rank === 2) return 'bg-slate-400 text-slate-900';
+    if (rank === 3) return 'bg-amber-600 text-white';
+    return 'bg-muted text-muted-foreground';
+  };
+
+  const getCardShadow = (rank: number) => {
+    if (rank === 1) return 'shadow-xl shadow-yellow-500/20 border-yellow-400/50';
+    if (rank === 2) return 'shadow-lg shadow-slate-400/20 border-slate-400/50';
+    if (rank === 3) return 'shadow-lg shadow-amber-500/20 border-amber-500/50';
     return 'border-border/50';
   };
 
@@ -156,10 +173,16 @@ const Leaderboard = () => {
   const truncateId = (id: string) => `${id.slice(0, 8)}...`;
 
   const getTabIcon = (tab: string) => {
-    if (tab === 'Leaderboard') return <Trophy className="w-4 h-4" />;
-    if (tab === 'Trending') return <Flame className="w-4 h-4" />;
-    if (tab === 'Most Viewed') return <Eye className="w-4 h-4" />;
+    if (tab === 'Event Leaderboard') return <Users className="w-4 h-4" />;
+    if (tab === 'Judge Leaderboard') return <Gavel className="w-4 h-4" />;
     return null;
+  };
+
+  const getOrdinalSuffix = (rank: number) => {
+    if (rank === 1) return 'st';
+    if (rank === 2) return 'nd';
+    if (rank === 3) return 'rd';
+    return 'th';
   };
 
   return (
@@ -176,36 +199,56 @@ const Leaderboard = () => {
             <span className="text-sm font-medium text-yellow-600">Live Rankings</span>
           </div>
           <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
-            Story <span className="text-gradient">Leaderboard</span>
+            Story <span className="text-gradient">Champions</span>
           </h1>
           <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-            Discover top stories by votes, trending content, and most viewed narratives from our creative community
+            {activeTab === 'Event Leaderboard' 
+              ? 'Rankings based on user votes - see which stories resonate with the community'
+              : 'Rankings based on judge evaluations - professional assessments of storytelling excellence'}
           </p>
         </div>
       </section>
 
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {/* Tabs */}
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-8 md:mb-12">
-          {leaderboardTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                'px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2',
-                activeTab === tab
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border hover:border-primary/20'
-              )}
-            >
-              {getTabIcon(tab)}
-              {tab}
-            </button>
-          ))}
+        {/* Tabs and Event Filter */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 md:mb-12">
+          <div className="flex flex-wrap justify-center gap-2 md:gap-3">
+            {leaderboardTabs.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={cn(
+                  'px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2',
+                  activeTab === tab
+                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                    : 'bg-card text-muted-foreground hover:bg-muted border border-border hover:border-primary/20'
+                )}
+              >
+                {getTabIcon(tab)}
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Event Filter */}
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select Event" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Events</SelectItem>
+                {events.map(event => (
+                  <SelectItem key={event.id} value={event.id}>{event.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -217,82 +260,97 @@ const Leaderboard = () => {
               <p className="text-muted-foreground">Be the first to participate and claim the top spot!</p>
             </div>
           ) : (
-            <div className="space-y-3 md:space-y-4">
-              {sortedEntries.map((entry, index) => {
-                const displayRank = index + 1;
-                const isTopThree = displayRank <= 3;
-                
-                return (
-                  <div
-                    key={entry.id}
-                    className={cn(
-                      'bg-card rounded-xl md:rounded-2xl p-4 md:p-5 border transition-all hover:shadow-md',
-                      getCardBorder(displayRank),
-                      'animate-fade-in'
-                    )}
-                    style={{ animationDelay: `${index * 0.03}s` }}
-                  >
-                    <div className="flex items-center gap-3 md:gap-4">
-                      {/* Rank Badge */}
-                      <div
-                        className={cn(
-                          'w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-gradient-to-br flex-shrink-0',
-                          getRankStyle(displayRank)
-                        )}
-                      >
-                        {getRankIcon(displayRank)}
-                      </div>
+            <>
+              {/* Champions Section - Top 3 */}
+              {topThree.length > 0 && (
+                <div className="mb-12">
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                      <span className="text-gradient">Champions</span>
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                      {activeTab === 'Event Leaderboard' ? 'Community Favorites' : 'Judge\'s Top Picks'}
+                    </p>
+                  </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground text-base md:text-lg line-clamp-1">
-                            {entry.story_title}
-                          </h3>
-                          <span className={cn(
-                            'px-2 py-0.5 text-xs font-medium rounded-md border flex-shrink-0 hidden sm:block',
-                            getCategoryColor(entry.category)
-                          )}>
-                            {entry.category}
-                          </span>
-                        </div>
-                        <p className="text-muted-foreground text-sm mb-2">
-                          By {entry.first_name} {entry.last_name}, Age {entry.age}
-                        </p>
-                        
-                        {/* Stats Row */}
-                        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <Trophy className="w-3.5 h-3.5 text-yellow-500" />
-                            <span className="font-semibold text-foreground">{(entry.overall_votes || 0).toLocaleString()}</span>
-                            <span className="text-muted-foreground text-xs">votes</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <Eye className="w-3.5 h-3.5 text-blue-500" />
-                            <span className="font-semibold text-foreground">{(entry.overall_views || 0).toLocaleString()}</span>
-                            <span className="text-muted-foreground text-xs">views</span>
-                          </div>
-                          {activeTab === 'Trending' && (
-                            <>
-                              <div className="flex items-center gap-1.5 text-sm">
-                                <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
-                                <span className="font-semibold text-purple-600">{entry.trending_count || 0}</span>
-                                <span className="text-muted-foreground text-xs">searches</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-sm">
-                                <Flame className="w-3.5 h-3.5 text-orange-500" />
-                                <span className="font-semibold text-orange-600">{Math.round(entry.trending_score || 0)}</span>
-                                <span className="text-muted-foreground text-xs">score</span>
-                              </div>
-                            </>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                    {/* Reorder for visual: 2nd, 1st, 3rd on desktop */}
+                    {[topThree[1], topThree[0], topThree[2]].filter(Boolean).map((entry, visualIndex) => {
+                      if (!entry) return null;
+                      const actualRank = sortedEntries.indexOf(entry) + 1;
+                      const isFirst = actualRank === 1;
+                      
+                      return (
+                        <div
+                          key={entry.id}
+                          className={cn(
+                            'bg-card rounded-2xl p-6 border-2 transition-all hover:scale-[1.02] relative overflow-hidden',
+                            getCardShadow(actualRank),
+                            isFirst && 'md:-mt-4 md:mb-4'
                           )}
-                          
-                          {/* User ID - Copy Button */}
+                        >
+                          {/* Rank Badge */}
+                          <div className="absolute top-0 right-0">
+                            <div className={cn(
+                              'px-4 py-2 rounded-bl-2xl font-bold text-lg',
+                              getRankBadgeColor(actualRank)
+                            )}>
+                              {actualRank}{getOrdinalSuffix(actualRank)}
+                            </div>
+                          </div>
+
+                          {/* Avatar/Icon */}
+                          <div className="flex justify-center mb-4">
+                            <div className={cn(
+                              'w-20 h-20 rounded-full flex items-center justify-center bg-gradient-to-br',
+                              getRankStyle(actualRank)
+                            )}>
+                              {actualRank === 1 ? (
+                                <Crown className="w-10 h-10" />
+                              ) : (
+                                <Medal className="w-10 h-10" />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Name & Title */}
+                          <div className="text-center mb-4">
+                            <h3 className="font-bold text-lg text-foreground mb-1 line-clamp-1">
+                              {entry.first_name} {entry.last_name}
+                            </h3>
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {entry.story_title}
+                            </p>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="flex items-center justify-center gap-4 mb-4">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-foreground">{entry.vote_count}</p>
+                              <p className="text-xs text-muted-foreground">Votes</p>
+                            </div>
+                            <div className="w-px h-8 bg-border" />
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-foreground">{entry.overall_views}</p>
+                              <p className="text-xs text-muted-foreground">Views</p>
+                            </div>
+                          </div>
+
+                          {/* Category */}
+                          <div className="flex justify-center">
+                            <span className={cn(
+                              'px-3 py-1 text-xs font-medium rounded-full border',
+                              getCategoryColor(entry.category)
+                            )}>
+                              {entry.category}
+                            </span>
+                          </div>
+
+                          {/* User ID */}
                           {entry.user_id && (
                             <button
                               onClick={() => copyUserId(entry.user_id)}
-                              className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 hover:bg-muted rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto"
-                              title="Copy User ID to search their videos"
+                              className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
                             >
                               <code className="font-mono">{truncateId(entry.user_id)}</code>
                               {copiedId === entry.user_id ? (
@@ -303,12 +361,94 @@ const Leaderboard = () => {
                             </button>
                           )}
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              )}
+
+              {/* Rest of Entries - Table Style */}
+              {restEntries.length > 0 && (
+                <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground">Rank</th>
+                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground">Participant</th>
+                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden md:table-cell">Story</th>
+                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Category</th>
+                          <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground">Votes</th>
+                          <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Views</th>
+                          <th className="text-right py-4 px-4 text-sm font-semibold text-muted-foreground">ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {restEntries.map((entry, index) => {
+                          const rank = index + 4;
+                          return (
+                            <tr 
+                              key={entry.id} 
+                              className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                            >
+                              <td className="py-4 px-4">
+                                <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-sm text-muted-foreground">
+                                  {rank}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4">
+                                <div>
+                                  <p className="font-semibold text-foreground">{entry.first_name} {entry.last_name}</p>
+                                  <p className="text-xs text-muted-foreground">Age {entry.age}</p>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 hidden md:table-cell">
+                                <p className="text-sm text-foreground line-clamp-1">{entry.story_title}</p>
+                              </td>
+                              <td className="py-4 px-4 hidden sm:table-cell">
+                                <span className={cn(
+                                  'px-2 py-1 text-xs font-medium rounded-md border',
+                                  getCategoryColor(entry.category)
+                                )}>
+                                  {entry.category}
+                                </span>
+                              </td>
+                              <td className="py-4 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+                                  <span className="font-semibold text-foreground">{entry.vote_count}</span>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 text-center hidden sm:table-cell">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Eye className="w-3.5 h-3.5 text-blue-500" />
+                                  <span className="font-semibold text-foreground">{entry.overall_views}</span>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4 text-right">
+                                {entry.user_id && (
+                                  <button
+                                    onClick={() => copyUserId(entry.user_id)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted/50 hover:bg-muted rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                  >
+                                    <code className="font-mono">{truncateId(entry.user_id)}</code>
+                                    {copiedId === entry.user_id ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
