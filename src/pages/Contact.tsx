@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Send, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { Send, MapPin, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -79,18 +79,6 @@ const Contact = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Clock className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Working Hours</h3>
-                    <p className="text-muted-foreground">
-                      Mon - Fri: 9:00 AM - 6:00 PM<br />
-                      Sat: 10:00 AM - 4:00 PM
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
 
