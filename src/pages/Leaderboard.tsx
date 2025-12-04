@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Eye, Trophy, Medal, Crown, Copy, Check, Star, Users, Gavel, Calendar } from 'lucide-react';
+import { Trophy, Medal, Crown, Copy, Check, Star, Users, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-const leaderboardTabs = ['Event Leaderboard', 'Judge Leaderboard'];
 
 interface LeaderboardEntry {
   id: string;
@@ -26,7 +24,6 @@ interface Event {
 }
 
 const Leaderboard = () => {
-  const [activeTab, setActiveTab] = useState('Event Leaderboard');
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('all');
@@ -45,7 +42,6 @@ const Leaderboard = () => {
     try {
       setLoading(true);
       
-      // Fetch registrations
       let query = supabase
         .from('registrations')
         .select('id, story_title, first_name, last_name, age, category, overall_views, user_id, event_id');
@@ -57,31 +53,23 @@ const Leaderboard = () => {
       const { data: registrations, error } = await query;
       if (error) throw error;
 
-      // Fetch all votes with user roles
       const { data: votes } = await supabase
         .from('votes')
         .select('registration_id, user_id, score');
 
-      // Fetch user roles to identify judges
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
-      // Create a set of judge user_ids
       const judgeUserIds = new Set(
         (userRoles || [])
           .filter(ur => ur.role === 'judge')
           .map(ur => ur.user_id)
       );
 
-      // Calculate votes based on tab
-      const isJudgeTab = activeTab === 'Judge Leaderboard';
       const voteCounts: Record<string, number> = {};
-
       (votes || []).forEach(vote => {
-        const isJudgeVote = judgeUserIds.has(vote.user_id);
-        
-        if ((isJudgeTab && isJudgeVote) || (!isJudgeTab && !isJudgeVote)) {
+        if (!judgeUserIds.has(vote.user_id)) {
           voteCounts[vote.registration_id] = (voteCounts[vote.registration_id] || 0) + 1;
         }
       });
@@ -107,14 +95,14 @@ const Leaderboard = () => {
     fetchLeaderboard();
 
     const votesChannel = supabase
-      .channel('leaderboard-votes-new')
+      .channel('leaderboard-votes-public')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
         fetchLeaderboard();
       })
       .subscribe();
 
     const registrationsChannel = supabase
-      .channel('leaderboard-registrations-new')
+      .channel('leaderboard-registrations-public')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
         fetchLeaderboard();
       })
@@ -124,7 +112,7 @@ const Leaderboard = () => {
       supabase.removeChannel(votesChannel);
       supabase.removeChannel(registrationsChannel);
     };
-  }, [activeTab, selectedEvent]);
+  }, [selectedEvent]);
 
   const sortedEntries = [...entries].sort((a, b) => b.vote_count - a.vote_count);
   const topThree = sortedEntries.slice(0, 3);
@@ -172,12 +160,6 @@ const Leaderboard = () => {
 
   const truncateId = (id: string) => `${id.slice(0, 8)}...`;
 
-  const getTabIcon = (tab: string) => {
-    if (tab === 'Event Leaderboard') return <Users className="w-4 h-4" />;
-    if (tab === 'Judge Leaderboard') return <Gavel className="w-4 h-4" />;
-    return null;
-  };
-
   const getOrdinalSuffix = (rank: number) => {
     if (rank === 1) return 'st';
     if (rank === 2) return 'nd';
@@ -202,32 +184,17 @@ const Leaderboard = () => {
             Story <span className="text-gradient">Champions</span>
           </h1>
           <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-            {activeTab === 'Event Leaderboard' 
-              ? 'Rankings based on user votes - see which stories resonate with the community'
-              : 'Rankings based on judge evaluations - professional assessments of storytelling excellence'}
+            Rankings based on community votes - see which stories resonate with the audience
           </p>
         </div>
       </section>
 
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {/* Tabs and Event Filter */}
+        {/* Header and Event Filter */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 md:mb-12">
-          <div className="flex flex-wrap justify-center gap-2 md:gap-3">
-            {leaderboardTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  'px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2',
-                  activeTab === tab
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                    : 'bg-card text-muted-foreground hover:bg-muted border border-border hover:border-primary/20'
-                )}
-              >
-                {getTabIcon(tab)}
-                {tab}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl border border-border/50">
+            <Users className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-foreground">Community Leaderboard</span>
           </div>
 
           {/* Event Filter */}
@@ -268,14 +235,11 @@ const Leaderboard = () => {
                     <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
                       <span className="text-gradient">Champions</span>
                     </h2>
-                    <p className="text-muted-foreground text-sm">
-                      {activeTab === 'Event Leaderboard' ? 'Community Favorites' : 'Judge\'s Top Picks'}
-                    </p>
+                    <p className="text-muted-foreground text-sm">Community Favorites</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                    {/* Reorder for visual: 2nd, 1st, 3rd on desktop */}
-                    {[topThree[1], topThree[0], topThree[2]].filter(Boolean).map((entry, visualIndex) => {
+                    {[topThree[1], topThree[0], topThree[2]].filter(Boolean).map((entry) => {
                       if (!entry) return null;
                       const actualRank = sortedEntries.indexOf(entry) + 1;
                       const isFirst = actualRank === 1;
@@ -403,33 +367,27 @@ const Leaderboard = () => {
                                 </div>
                               </td>
                               <td className="py-4 px-4 hidden md:table-cell">
-                                <p className="text-sm text-foreground line-clamp-1">{entry.story_title}</p>
+                                <p className="text-foreground line-clamp-1">{entry.story_title}</p>
                               </td>
                               <td className="py-4 px-4 hidden sm:table-cell">
                                 <span className={cn(
-                                  'px-2 py-1 text-xs font-medium rounded-md border',
+                                  'px-2 py-1 text-xs font-medium rounded-full border',
                                   getCategoryColor(entry.category)
                                 )}>
                                   {entry.category}
                                 </span>
                               </td>
                               <td className="py-4 px-4 text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Trophy className="w-3.5 h-3.5 text-yellow-500" />
-                                  <span className="font-semibold text-foreground">{entry.vote_count}</span>
-                                </div>
+                                <span className="font-bold text-foreground">{entry.vote_count}</span>
                               </td>
                               <td className="py-4 px-4 text-center hidden sm:table-cell">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Eye className="w-3.5 h-3.5 text-blue-500" />
-                                  <span className="font-semibold text-foreground">{entry.overall_views}</span>
-                                </div>
+                                <span className="text-muted-foreground">{entry.overall_views}</span>
                               </td>
                               <td className="py-4 px-4 text-right">
                                 {entry.user_id && (
                                   <button
                                     onClick={() => copyUserId(entry.user_id)}
-                                    className="inline-flex items-center gap-1 px-2 py-1 bg-muted/50 hover:bg-muted rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors"
+                                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                                   >
                                     <code className="font-mono">{truncateId(entry.user_id)}</code>
                                     {copiedId === entry.user_id ? (
