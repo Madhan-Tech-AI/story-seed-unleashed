@@ -33,10 +33,10 @@ import UserRegistrations from "./pages/dashboard/UserRegistrations";
 import UserProfile from "./pages/dashboard/UserProfile";
 import UserExplore from "./pages/dashboard/UserExplore";
 import UserEventDetails from "./pages/dashboard/UserEventDetails";
+import UserResults from "./pages/dashboard/UserResults";
 
 import JudgeDashboard from "./pages/dashboard/JudgeDashboard";
 import JudgeSubmissions from "./pages/dashboard/JudgeSubmissions";
-import JudgeVoting from "./pages/dashboard/JudgeVoting";
 import JudgeEntries from "./pages/dashboard/JudgeEntries";
 import JudgeProfile from "./pages/dashboard/JudgeProfile";
 
@@ -86,6 +86,7 @@ const App = () => (
               <Route path="events" element={<UserEvents />} />
               <Route path="events/:id" element={<UserEventDetails />} />
               <Route path="registrations" element={<UserRegistrations />} />
+              <Route path="results" element={<UserResults />} />
               <Route path="profile" element={<UserProfile />} />
               <Route path="register" element={<Register />} />
             </Route>
@@ -94,7 +95,6 @@ const App = () => (
             <Route path="/judge/dashboard" element={<DashboardLayout requiredRole="judge" />}>
               <Route index element={<JudgeDashboard />} />
               <Route path="submissions" element={<JudgeSubmissions />} />
-              <Route path="voting" element={<JudgeVoting />} />
               <Route path="entries" element={<JudgeEntries />} />
               <Route path="profile" element={<JudgeProfile />} />
             </Route>

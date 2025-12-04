@@ -127,8 +127,14 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          prize_amount: number | null
+          prize_currency: string | null
+          results_announced: boolean | null
+          runner_up_id: string | null
+          second_runner_up_id: string | null
           start_date: string | null
           updated_at: string | null
+          winner_id: string | null
         }
         Insert: {
           banner_image?: string | null
@@ -138,8 +144,14 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          prize_amount?: number | null
+          prize_currency?: string | null
+          results_announced?: boolean | null
+          runner_up_id?: string | null
+          second_runner_up_id?: string | null
           start_date?: string | null
           updated_at?: string | null
+          winner_id?: string | null
         }
         Update: {
           banner_image?: string | null
@@ -149,10 +161,38 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          prize_amount?: number | null
+          prize_currency?: string | null
+          results_announced?: boolean | null
+          runner_up_id?: string | null
+          second_runner_up_id?: string | null
           start_date?: string | null
           updated_at?: string | null
+          winner_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_runner_up_id_fkey"
+            columns: ["runner_up_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_second_runner_up_id_fkey"
+            columns: ["second_runner_up_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_winner_id_fkey"
+            columns: ["winner_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       judge_settings: {
         Row: {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Trophy, Users, ArrowRight, Image } from 'lucide-react';
+import { Calendar, Trophy, Users, ArrowRight, Image, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,8 +12,20 @@ interface Event {
   start_date: string | null;
   end_date: string | null;
   banner_image: string | null;
+  prize_amount: number | null;
+  prize_currency: string | null;
   participantCount: number;
 }
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  INR: '₹',
+  JPY: '¥',
+  AUD: 'A$',
+  CAD: 'C$',
+};
 
 const UserEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -73,6 +85,12 @@ const UserEvents = () => {
     }
     if (start) return `Starts ${format(new Date(start), 'MMM d, yyyy')}`;
     return `Ends ${format(new Date(end!), 'MMM d, yyyy')}`;
+  };
+
+  const formatCurrency = (amount: number | null, currency: string | null) => {
+    if (!amount) return null;
+    const symbol = CURRENCY_SYMBOLS[currency || 'USD'] || currency || '$';
+    return `${symbol}${amount.toLocaleString()}`;
   };
 
   if (loading) {
@@ -143,6 +161,12 @@ const UserEvents = () => {
                     <Users className="w-4 h-4" />
                     {event.participantCount.toLocaleString()} participants
                   </span>
+                  {event.prize_amount && (
+                    <span className="flex items-center gap-1 text-yellow-600 font-medium">
+                      <Trophy className="w-4 h-4" />
+                      Prize: {formatCurrency(event.prize_amount, event.prize_currency)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

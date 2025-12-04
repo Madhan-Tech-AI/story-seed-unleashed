@@ -1,12 +1,30 @@
 import { useState, useEffect } from 'react';
-import { Eye, Edit, Trash2, X, Check } from 'lucide-react';
+import { Eye, Edit, Trash2, X, Check, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+
+const CURRENCIES = [
+  { code: 'USD', name: 'US Dollar', symbol: '$' },
+  { code: 'EUR', name: 'Euro', symbol: '€' },
+  { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+];
+
+interface Participant {
+  id: string;
+  first_name: string;
+  last_name: string;
+  story_title: string;
+}
 
 interface Event {
   id: string;
@@ -16,6 +34,12 @@ interface Event {
   end_date: string | null;
   is_active: boolean | null;
   banner_image: string | null;
+  prize_amount: number | null;
+  prize_currency: string | null;
+  winner_id: string | null;
+  runner_up_id: string | null;
+  second_runner_up_id: string | null;
+  results_announced: boolean | null;
   participantCount?: number;
   voteCount?: number;
 }
@@ -26,11 +50,17 @@ const AdminCompetitions = () => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [winnersDialog, setWinnersDialog] = useState<Event | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [winnerSelections, setWinnerSelections] = useState({
+    winner_id: '',
+    runner_up_id: '',
+    second_runner_up_id: '',
+  });
   const { toast } = useToast();
 
   const fetchEvents = async () => {
     try {
-      // Get events
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('*')
@@ -38,7 +68,6 @@ const AdminCompetitions = () => {
 
       if (eventsError) throw eventsError;
 
-      // Get participant and vote counts for each event
       const eventsWithCounts = await Promise.all(
         (eventsData || []).map(async (event) => {
           const { count: participantCount } = await supabase
@@ -69,10 +98,21 @@ const AdminCompetitions = () => {
     }
   };
 
+  const fetchParticipants = async (eventId: string) => {
+    const { data, error } = await supabase
+      .from('registrations')
+      .select('id, first_name, last_name, story_title')
+      .eq('event_id', eventId)
+      .order('overall_votes', { ascending: false });
+
+    if (!error && data) {
+      setParticipants(data);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
 
-    // Real-time subscription
     const channel = supabase
       .channel('events-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
@@ -96,6 +136,10 @@ const AdminCompetitions = () => {
     return 'Live';
   };
 
+  const getCurrencySymbol = (code: string | null) => {
+    return CURRENCIES.find(c => c.code === code)?.symbol || '$';
+  };
+
   const handleUpdate = async () => {
     if (!editEvent) return;
     
@@ -108,6 +152,8 @@ const AdminCompetitions = () => {
           start_date: editEvent.start_date,
           end_date: editEvent.end_date,
           is_active: editEvent.is_active,
+          prize_amount: editEvent.prize_amount,
+          prize_currency: editEvent.prize_currency,
         })
         .eq('id', editEvent.id);
 
@@ -127,6 +173,39 @@ const AdminCompetitions = () => {
 
       toast({ title: 'Event Deleted', description: 'Competition has been deleted.' });
       setDeleteConfirm(null);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const openWinnersDialog = async (event: Event) => {
+    setWinnersDialog(event);
+    setWinnerSelections({
+      winner_id: event.winner_id || '',
+      runner_up_id: event.runner_up_id || '',
+      second_runner_up_id: event.second_runner_up_id || '',
+    });
+    await fetchParticipants(event.id);
+  };
+
+  const handleAnnounceWinners = async () => {
+    if (!winnersDialog) return;
+
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          winner_id: winnerSelections.winner_id || null,
+          runner_up_id: winnerSelections.runner_up_id || null,
+          second_runner_up_id: winnerSelections.second_runner_up_id || null,
+          results_announced: true,
+        })
+        .eq('id', winnersDialog.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Winners Announced!', description: 'Results are now visible to participants.' });
+      setWinnersDialog(null);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -155,8 +234,8 @@ const AdminCompetitions = () => {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left p-4 font-medium text-foreground">Competition</th>
+                  <th className="text-left p-4 font-medium text-foreground">Prize</th>
                   <th className="text-left p-4 font-medium text-foreground">Participants</th>
-                  <th className="text-left p-4 font-medium text-foreground">Votes</th>
                   <th className="text-left p-4 font-medium text-foreground">Status</th>
                   <th className="text-left p-4 font-medium text-foreground">Actions</th>
                 </tr>
@@ -166,9 +245,23 @@ const AdminCompetitions = () => {
                   const status = getStatus(event);
                   return (
                     <tr key={event.id} className="border-t border-border/50">
-                      <td className="p-4 font-medium text-foreground">{event.name}</td>
+                      <td className="p-4">
+                        <div>
+                          <p className="font-medium text-foreground">{event.name}</p>
+                          {event.results_announced && (
+                            <span className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                              <Trophy className="w-3 h-3" /> Results announced
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 text-muted-foreground">
+                        {event.prize_amount 
+                          ? `${getCurrencySymbol(event.prize_currency)}${event.prize_amount.toLocaleString()}`
+                          : '-'
+                        }
+                      </td>
                       <td className="p-4 text-muted-foreground">{event.participantCount?.toLocaleString()}</td>
-                      <td className="p-4 text-muted-foreground">{event.voteCount?.toLocaleString()}</td>
                       <td className="p-4">
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           status === 'Live' ? 'bg-green-100 text-green-700' : 
@@ -186,6 +279,9 @@ const AdminCompetitions = () => {
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => setEditEvent(event)}>
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-yellow-600" onClick={() => openWinnersDialog(event)}>
+                            <Trophy className="w-4 h-4" />
                           </Button>
                           <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirm(event.id)}>
                             <Trash2 className="w-4 h-4" />
@@ -217,6 +313,7 @@ const AdminCompetitions = () => {
                 <div><span className="text-muted-foreground">End:</span> {selectedEvent.end_date ? format(new Date(selectedEvent.end_date), 'PPP') : 'Not set'}</div>
                 <div><span className="text-muted-foreground">Participants:</span> {selectedEvent.participantCount}</div>
                 <div><span className="text-muted-foreground">Total Votes:</span> {selectedEvent.voteCount}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Prize:</span> {selectedEvent.prize_amount ? `${getCurrencySymbol(selectedEvent.prize_currency)}${selectedEvent.prize_amount.toLocaleString()}` : 'Not set'}</div>
               </div>
               {selectedEvent.description && (
                 <p className="text-muted-foreground">{selectedEvent.description}</p>
@@ -228,7 +325,7 @@ const AdminCompetitions = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editEvent} onOpenChange={() => setEditEvent(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Competition</DialogTitle>
           </DialogHeader>
@@ -257,6 +354,30 @@ const AdminCompetitions = () => {
                 </div>
               </div>
               <div className="space-y-2">
+                <label className="text-sm font-medium">Prize Details</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <Select
+                    value={editEvent.prize_currency || 'USD'}
+                    onValueChange={(value) => setEditEvent({ ...editEvent, prize_currency: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Currency" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c.code} value={c.code}>{c.symbol} - {c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input 
+                    type="number"
+                    placeholder="Amount"
+                    value={editEvent.prize_amount || ''} 
+                    onChange={(e) => setEditEvent({ ...editEvent, prize_amount: e.target.value ? parseFloat(e.target.value) : null })} 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
                 <Textarea 
                   value={editEvent.description || ''} 
@@ -276,6 +397,100 @@ const AdminCompetitions = () => {
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setEditEvent(null)}>Cancel</Button>
                 <Button variant="hero" onClick={handleUpdate}><Check className="w-4 h-4 mr-1" />Save</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Winners Dialog */}
+      <Dialog open={!!winnersDialog} onOpenChange={() => setWinnersDialog(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-yellow-500" /> Announce Winners
+            </DialogTitle>
+          </DialogHeader>
+          {winnersDialog && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Select winners for <strong>{winnersDialog.name}</strong></p>
+              
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-yellow-500 text-white flex items-center justify-center text-xs font-bold">1</span>
+                    Winner (1st Place)
+                  </label>
+                  <Select
+                    value={winnerSelections.winner_id}
+                    onValueChange={(value) => setWinnerSelections({ ...winnerSelections, winner_id: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select winner" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-60">
+                      <SelectItem value="">None</SelectItem>
+                      {participants.map((p) => (
+                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.runner_up_id || p.id === winnerSelections.second_runner_up_id}>
+                          {p.first_name} {p.last_name} - {p.story_title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-gray-400 text-white flex items-center justify-center text-xs font-bold">2</span>
+                    Runner Up (2nd Place)
+                  </label>
+                  <Select
+                    value={winnerSelections.runner_up_id}
+                    onValueChange={(value) => setWinnerSelections({ ...winnerSelections, runner_up_id: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select runner up" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-60">
+                      <SelectItem value="">None</SelectItem>
+                      {participants.map((p) => (
+                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.second_runner_up_id}>
+                          {p.first_name} {p.last_name} - {p.story_title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-amber-600 text-white flex items-center justify-center text-xs font-bold">3</span>
+                    Second Runner Up (3rd Place)
+                  </label>
+                  <Select
+                    value={winnerSelections.second_runner_up_id}
+                    onValueChange={(value) => setWinnerSelections({ ...winnerSelections, second_runner_up_id: value })}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select second runner up" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background max-h-60">
+                      <SelectItem value="">None</SelectItem>
+                      {participants.map((p) => (
+                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.runner_up_id}>
+                          {p.first_name} {p.last_name} - {p.story_title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-4">
+                <Button variant="outline" onClick={() => setWinnersDialog(null)}>Cancel</Button>
+                <Button variant="hero" onClick={handleAnnounceWinners}>
+                  <Trophy className="w-4 h-4 mr-1" /> Announce Winners
+                </Button>
               </div>
             </div>
           )}
