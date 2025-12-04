@@ -19,7 +19,6 @@ const navLinks = [
   { name: 'Events', path: '/events' },
   { name: 'Gallery', path: '/gallery' },
   { name: 'Leaderboard', path: '/leaderboard' },
-  { name: 'FAQ', path: '/faq' },
   { name: 'Contact', path: '/contact' },
 ];
 
