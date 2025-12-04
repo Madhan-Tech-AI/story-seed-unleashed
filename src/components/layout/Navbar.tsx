@@ -70,18 +70,12 @@ export const Navbar = () => {
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center transition-transform group-hover:scale-110">
-              <span className="text-primary-foreground font-display font-bold text-xl">S</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-lg leading-tight text-foreground">
-                Story Seed
-              </span>
-              <span className="text-[10px] text-muted-foreground tracking-wider uppercase">
-                Studio
-              </span>
-            </div>
+          <Link to="/" className="flex items-center group">
+            <img 
+              src="/assets/logo.png" 
+              alt="Story Seed Studio" 
+              className="h-10 w-auto transition-transform group-hover:scale-105"
+            />
           </Link>
 
           {/* Desktop Navigation */}
