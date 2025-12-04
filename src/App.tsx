@@ -16,7 +16,6 @@ import Leaderboard from "./pages/Leaderboard";
 import Register from "./pages/Register";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
-import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
@@ -70,7 +69,6 @@ const App = () => (
               <Route path="/register" element={<Register />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
-              <Route path="/faq" element={<FAQ />} />
               <Route path="/contact" element={<Contact />} />
             </Route>
 
