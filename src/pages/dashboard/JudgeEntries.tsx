@@ -11,6 +11,7 @@ type ReviewedEntry = {
   status: string;
   reviewedAt: string;
   eventName: string;
+  comment: string | null;
 };
 
 const JudgeEntries = () => {
@@ -25,7 +26,7 @@ const JudgeEntries = () => {
       // Get all votes by this judge
       const { data: votes, error: votesError } = await supabase
         .from('votes')
-        .select('id, score, created_at, registration_id')
+        .select('id, score, created_at, registration_id, comment')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -59,7 +60,8 @@ const JudgeEntries = () => {
             score: v.score,
             status: v.score >= 5 ? 'Approved' : 'Rejected',
             reviewedAt: v.created_at,
-            eventName: reg?.event_id ? eventMap.get(reg.event_id) || 'Unknown Event' : 'Unknown Event'
+            eventName: reg?.event_id ? eventMap.get(reg.event_id) || 'Unknown Event' : 'Unknown Event',
+            comment: (v as any).comment || null
           };
         });
 
@@ -107,33 +109,41 @@ const JudgeEntries = () => {
           {entries.map((entry) => (
             <div
               key={entry.id}
-              className="bg-card p-6 rounded-2xl border border-border/50 flex justify-between items-center card-hover"
+              className="bg-card p-6 rounded-2xl border border-border/50 card-hover"
             >
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                    {entry.eventName}
-                  </span>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                      {entry.eventName}
+                    </span>
+                  </div>
+                  <h3 className="font-display text-lg font-semibold text-foreground">
+                    {entry.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm">
+                    By {entry.author} • Score: {entry.score}/10
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reviewed {format(new Date(entry.reviewedAt), 'MMM d, yyyy h:mm a')}
+                  </p>
                 </div>
-                <h3 className="font-display text-lg font-semibold text-foreground">
-                  {entry.title}
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  By {entry.author} • Score: {entry.score}/10
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Reviewed {format(new Date(entry.reviewedAt), 'MMM d, yyyy h:mm a')}
-                </p>
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    entry.status === 'Approved'
+                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                  }`}
+                >
+                  {entry.status}
+                </span>
               </div>
-              <span
-                className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  entry.status === 'Approved'
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                }`}
-              >
-                {entry.status}
-              </span>
+              {entry.comment && (
+                <div className="mt-4 pt-4 border-t border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Your Review Comment:</p>
+                  <p className="text-sm text-foreground/80">{entry.comment}</p>
+                </div>
+              )}
             </div>
           ))}
         </div>
