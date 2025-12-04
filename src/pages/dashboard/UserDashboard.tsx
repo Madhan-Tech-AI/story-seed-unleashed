@@ -45,7 +45,7 @@ const UserDashboard = () => {
         // Fetch user's registrations with event names, votes, and views
         const { data: registrations, error: regError } = await supabase
           .from('registrations')
-          .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, events(name)')
+          .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, events:events!registrations_event_id_fkey(name)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
