@@ -28,12 +28,14 @@ interface Comment {
   user_id: string;
   created_at: string;
   user_name?: string;
+  user_avatar?: string | null;
 }
 
 interface VoteSummary {
   totalVotes: number;
   averageScore: number;
   userVote: number | null;
+  hasVoted: boolean;
 }
 
 const UserExplore = () => {
@@ -49,7 +51,7 @@ const UserExplore = () => {
   const [score, setScore] = useState(8);
   const [voteSubmitted, setVoteSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [voteSummary, setVoteSummary] = useState<VoteSummary>({ totalVotes: 0, averageScore: 0, userVote: null });
+  const [voteSummary, setVoteSummary] = useState<VoteSummary>({ totalVotes: 0, averageScore: 0, userVote: null, hasVoted: false });
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
@@ -92,13 +94,15 @@ const UserExplore = () => {
         const averageScore = totalVotes > 0 
           ? votesData.reduce((sum, v) => sum + v.score, 0) / totalVotes 
           : 0;
-        const userVote = user?.id 
-          ? votesData.find(v => v.user_id === user.id)?.score || null 
+        const userVoteData = user?.id 
+          ? votesData.find(v => v.user_id === user.id)
           : null;
+        const userVote = userVoteData?.score || null;
+        const hasVoted = !!userVoteData;
 
-        setVoteSummary({ totalVotes, averageScore, userVote });
-        if (userVote) {
-          setScore(userVote);
+        setVoteSummary({ totalVotes, averageScore, userVote, hasVoted });
+        if (hasVoted) {
+          setScore(userVote || 8);
           setVoteSubmitted(true);
         }
       }
@@ -111,18 +115,19 @@ const UserExplore = () => {
         .order('created_at', { ascending: true });
 
       if (commentsData) {
-        // Fetch user names for comments
+        // Fetch user names and avatars for comments
         const userIds = [...new Set(commentsData.map(c => c.user_id))];
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, name')
+          .select('id, name, avatar')
           .in('id', userIds);
 
-        const profileMap = new Map(profiles?.map(p => [p.id, p.name]) || []);
+        const profileMap = new Map(profiles?.map(p => [p.id, { name: p.name, avatar: p.avatar }]) || []);
         
         const commentsWithNames = commentsData.map(c => ({
           ...c,
-          user_name: profileMap.get(c.user_id) || 'Anonymous'
+          user_name: profileMap.get(c.user_id)?.name || 'Anonymous',
+          user_avatar: profileMap.get(c.user_id)?.avatar
         }));
         
         setComments(commentsWithNames);
@@ -190,8 +195,36 @@ const UserExplore = () => {
     setShowVotingPanel(false);
     setScore(8);
     setVoteSubmitted(false);
-    setVoteSummary({ totalVotes: 0, averageScore: 0, userVote: null });
+    setVoteSummary({ totalVotes: 0, averageScore: 0, userVote: null, hasVoted: false });
     setComments([]);
+    
+    // Track view if user is logged in
+    if (user?.id) {
+      trackView(story.id);
+    }
+  };
+
+  const trackView = async (registrationId: string) => {
+    if (!user?.id) return;
+    
+    try {
+      // Check if user already viewed this story
+      const { data: existingView } = await supabase
+        .from('views')
+        .select('id')
+        .eq('registration_id', registrationId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (!existingView) {
+        await supabase.from('views').insert({
+          registration_id: registrationId,
+          user_id: user.id,
+        });
+      }
+    } catch (error) {
+      console.error('Error tracking view:', error);
+    }
   };
 
   const handleSkip = (seconds: number) => {
@@ -471,13 +504,21 @@ const UserExplore = () => {
                     </span>
                   </div>
 
-                  {!showVotingPanel ? (
+                  {voteSummary.hasVoted ? (
+                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
+                      <CheckCircle2 className="w-5 h-5 text-green-600 mx-auto mb-1" />
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400">
+                        You voted {voteSummary.userVote}/10
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">Votes cannot be changed</p>
+                    </div>
+                  ) : !showVotingPanel ? (
                     <Button
                       variant="hero"
                       className="w-full"
                       onClick={() => setShowVotingPanel(true)}
                     >
-                      {voteSummary.userVote ? 'Update Vote' : 'Vote for this Story'}
+                      Vote for this Story
                     </Button>
                   ) : (
                     <div className="space-y-3">

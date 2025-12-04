@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_read: boolean | null
+          reference_id: string | null
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          reference_id?: string | null
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean | null
+          reference_id?: string | null
+          title?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      admin_settings: {
+        Row: {
+          about: string | null
+          competition_updates: boolean | null
+          created_at: string
+          id: string
+          judge_alerts: boolean | null
+          login_alerts: boolean | null
+          two_factor_auth: boolean | null
+          updated_at: string
+          user_id: string
+          user_registrations: boolean | null
+        }
+        Insert: {
+          about?: string | null
+          competition_updates?: boolean | null
+          created_at?: string
+          id?: string
+          judge_alerts?: boolean | null
+          login_alerts?: boolean | null
+          two_factor_auth?: boolean | null
+          updated_at?: string
+          user_id: string
+          user_registrations?: boolean | null
+        }
+        Update: {
+          about?: string | null
+          competition_updates?: boolean | null
+          created_at?: string
+          id?: string
+          judge_alerts?: boolean | null
+          login_alerts?: boolean | null
+          two_factor_auth?: boolean | null
+          updated_at?: string
+          user_id?: string
+          user_registrations?: boolean | null
+        }
+        Relationships: []
+      }
       comments: {
         Row: {
           content: string
@@ -85,6 +154,39 @@ export type Database = {
         }
         Relationships: []
       }
+      judge_settings: {
+        Row: {
+          bio: string | null
+          created_at: string
+          email_notifications: boolean | null
+          expertise: string | null
+          id: string
+          review_reminders: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          email_notifications?: boolean | null
+          expertise?: string | null
+          id?: string
+          review_reminders?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          email_notifications?: boolean | null
+          expertise?: string | null
+          id?: string
+          review_reminders?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar: string | null
@@ -141,6 +243,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          overall_views: number
           overall_votes: number
           phone: string
           story_description: string
@@ -159,6 +262,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          overall_views?: number
           overall_votes?: number
           phone: string
           story_description: string
@@ -177,6 +281,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          overall_views?: number
           overall_votes?: number
           phone?: string
           story_description?: string
@@ -213,6 +318,45 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          email_notifications: boolean | null
+          event_updates: boolean | null
+          id: string
+          language: string | null
+          push_notifications: boolean | null
+          theme: string | null
+          updated_at: string
+          user_id: string
+          voting_reminders: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          email_notifications?: boolean | null
+          event_updates?: boolean | null
+          id?: string
+          language?: string | null
+          push_notifications?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+          voting_reminders?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          email_notifications?: boolean | null
+          event_updates?: boolean | null
+          id?: string
+          language?: string | null
+          push_notifications?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+          voting_reminders?: boolean | null
         }
         Relationships: []
       }
