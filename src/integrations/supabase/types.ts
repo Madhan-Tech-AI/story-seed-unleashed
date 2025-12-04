@@ -394,6 +394,7 @@ export type Database = {
       }
       votes: {
         Row: {
+          comment: string | null
           created_at: string
           id: string
           registration_id: string
@@ -402,6 +403,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          comment?: string | null
           created_at?: string
           id?: string
           registration_id: string
@@ -410,6 +412,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          comment?: string | null
           created_at?: string
           id?: string
           registration_id?: string

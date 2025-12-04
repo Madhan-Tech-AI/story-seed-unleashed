@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Eye, Users, Play, Pause, Maximize, Vote, Gauge } from 'lucide-react';
+import { Eye, Users, Play, Pause, Maximize, Vote, Gauge, MessageSquare } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,6 +16,7 @@ type Participant = {
   id: string;
   name: string;
   storyTitle: string;
+  storyDescription: string;
   age: number;
   category: string;
   photo: string;
@@ -44,6 +46,7 @@ const JudgeSubmissions = () => {
   const [videoProgress, setVideoProgress] = useState([0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('1');
+  const [judgeComment, setJudgeComment] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const fetchEvents = async () => {
@@ -70,7 +73,7 @@ const JudgeSubmissions = () => {
         for (const event of eventsData) {
           const { data: registrations } = await supabase
             .from('registrations')
-            .select('id, first_name, last_name, story_title, age, category, yt_link')
+            .select('id, first_name, last_name, story_title, story_description, age, category, yt_link')
             .eq('event_id', event.id);
 
           if (registrations && registrations.length > 0) {
@@ -78,6 +81,7 @@ const JudgeSubmissions = () => {
               id: p.id,
               name: `${p.first_name} ${p.last_name}`,
               storyTitle: p.story_title,
+              storyDescription: p.story_description || '',
               age: p.age,
               category: p.category,
               photo: `https://api.dicebear.com/8.x/initials/svg?seed=${p.first_name}${p.last_name}`,
@@ -133,6 +137,7 @@ const JudgeSubmissions = () => {
     setIsVotingOpen(true);
     setVoteScore([50]);
     setVideoProgress([0]);
+    setJudgeComment('');
   };
 
   const handleSubmitVote = async () => {
@@ -144,7 +149,8 @@ const JudgeSubmissions = () => {
       const { error } = await supabase.from('votes').insert({
         user_id: user.id,
         registration_id: selectedParticipant.registrationId,
-        score
+        score,
+        comment: judgeComment || null
       });
 
       if (error) throw error;
@@ -412,6 +418,28 @@ const JudgeSubmissions = () => {
                     Age {selectedParticipant.age} • {selectedParticipant.category}
                   </p>
                 </div>
+              </div>
+
+              {/* Story Description */}
+              <div className="p-4 rounded-xl bg-muted/40 border border-border/60">
+                <h4 className="font-medium text-foreground mb-2">Story Description</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {selectedParticipant.storyDescription || 'No description provided.'}
+                </p>
+              </div>
+
+              {/* Judge Comment */}
+              <div className="space-y-3 p-4 rounded-xl bg-muted/40 border border-border/60">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  <h4 className="font-medium text-foreground">Your Review Comment</h4>
+                </div>
+                <Textarea
+                  placeholder="Add your feedback or review comments here (optional)..."
+                  value={judgeComment}
+                  onChange={(e) => setJudgeComment(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                />
               </div>
 
               {/* Voting Scale */}
