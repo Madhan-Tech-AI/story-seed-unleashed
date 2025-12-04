@@ -9,16 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
-const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-];
-
 interface Participant {
   id: string;
   first_name: string;
@@ -34,8 +24,6 @@ interface Event {
   end_date: string | null;
   is_active: boolean | null;
   banner_image: string | null;
-  prize_amount: number | null;
-  prize_currency: string | null;
   winner_id: string | null;
   runner_up_id: string | null;
   second_runner_up_id: string | null;
@@ -136,10 +124,6 @@ const AdminCompetitions = () => {
     return 'Live';
   };
 
-  const getCurrencySymbol = (code: string | null) => {
-    return CURRENCIES.find(c => c.code === code)?.symbol || '$';
-  };
-
   const handleUpdate = async () => {
     if (!editEvent) return;
     
@@ -152,8 +136,6 @@ const AdminCompetitions = () => {
           start_date: editEvent.start_date,
           end_date: editEvent.end_date,
           is_active: editEvent.is_active,
-          prize_amount: editEvent.prize_amount,
-          prize_currency: editEvent.prize_currency,
         })
         .eq('id', editEvent.id);
 
@@ -234,7 +216,6 @@ const AdminCompetitions = () => {
               <thead className="bg-muted/50">
                 <tr>
                   <th className="text-left p-4 font-medium text-foreground">Competition</th>
-                  <th className="text-left p-4 font-medium text-foreground">Prize</th>
                   <th className="text-left p-4 font-medium text-foreground">Participants</th>
                   <th className="text-left p-4 font-medium text-foreground">Status</th>
                   <th className="text-left p-4 font-medium text-foreground">Actions</th>
@@ -254,12 +235,6 @@ const AdminCompetitions = () => {
                             </span>
                           )}
                         </div>
-                      </td>
-                      <td className="p-4 text-muted-foreground">
-                        {event.prize_amount 
-                          ? `${getCurrencySymbol(event.prize_currency)}${event.prize_amount.toLocaleString()}`
-                          : '-'
-                        }
                       </td>
                       <td className="p-4 text-muted-foreground">{event.participantCount?.toLocaleString()}</td>
                       <td className="p-4">
@@ -313,7 +288,6 @@ const AdminCompetitions = () => {
                 <div><span className="text-muted-foreground">End:</span> {selectedEvent.end_date ? format(new Date(selectedEvent.end_date), 'PPP') : 'Not set'}</div>
                 <div><span className="text-muted-foreground">Participants:</span> {selectedEvent.participantCount}</div>
                 <div><span className="text-muted-foreground">Total Votes:</span> {selectedEvent.voteCount}</div>
-                <div className="col-span-2"><span className="text-muted-foreground">Prize:</span> {selectedEvent.prize_amount ? `${getCurrencySymbol(selectedEvent.prize_currency)}${selectedEvent.prize_amount.toLocaleString()}` : 'Not set'}</div>
               </div>
               {selectedEvent.description && (
                 <p className="text-muted-foreground">{selectedEvent.description}</p>
@@ -350,30 +324,6 @@ const AdminCompetitions = () => {
                     type="date" 
                     value={editEvent.end_date?.split('T')[0] || ''} 
                     onChange={(e) => setEditEvent({ ...editEvent, end_date: e.target.value })} 
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Prize Details</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <Select
-                    value={editEvent.prize_currency || 'USD'}
-                    onValueChange={(value) => setEditEvent({ ...editEvent, prize_currency: value })}
-                  >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Currency" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background">
-                      {CURRENCIES.map((c) => (
-                        <SelectItem key={c.code} value={c.code}>{c.symbol} - {c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input 
-                    type="number"
-                    placeholder="Amount"
-                    value={editEvent.prize_amount || ''} 
-                    onChange={(e) => setEditEvent({ ...editEvent, prize_amount: e.target.value ? parseFloat(e.target.value) : null })} 
                   />
                 </div>
               </div>
@@ -428,12 +378,10 @@ const AdminCompetitions = () => {
                     <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select winner" />
                     </SelectTrigger>
-                    <SelectContent className="bg-card border-border z-50">
-                      <SelectItem value="none">None</SelectItem>
+                    <SelectContent className="bg-card border-border">
+                      <SelectItem value="none">No winner</SelectItem>
                       {participants.map((p) => (
-                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.runner_up_id || p.id === winnerSelections.second_runner_up_id}>
-                          {p.first_name} {p.last_name} - {p.story_title}
-                        </SelectItem>
+                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name} - {p.story_title}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -451,12 +399,10 @@ const AdminCompetitions = () => {
                     <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select runner up" />
                     </SelectTrigger>
-                    <SelectContent className="bg-card border-border z-50">
-                      <SelectItem value="none">None</SelectItem>
+                    <SelectContent className="bg-card border-border">
+                      <SelectItem value="none">No runner up</SelectItem>
                       {participants.map((p) => (
-                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.second_runner_up_id}>
-                          {p.first_name} {p.last_name} - {p.story_title}
-                        </SelectItem>
+                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name} - {p.story_title}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -474,12 +420,10 @@ const AdminCompetitions = () => {
                     <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select second runner up" />
                     </SelectTrigger>
-                    <SelectContent className="bg-card border-border z-50">
-                      <SelectItem value="none">None</SelectItem>
+                    <SelectContent className="bg-card border-border">
+                      <SelectItem value="none">No second runner up</SelectItem>
                       {participants.map((p) => (
-                        <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.runner_up_id}>
-                          {p.first_name} {p.last_name} - {p.story_title}
-                        </SelectItem>
+                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name} - {p.story_title}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -503,11 +447,11 @@ const AdminCompetitions = () => {
           <DialogHeader>
             <DialogTitle>Delete Competition?</DialogTitle>
           </DialogHeader>
-          <p className="text-muted-foreground">This action cannot be undone. All associated data will be permanently deleted.</p>
+          <p className="text-muted-foreground">This action cannot be undone. All related data will be permanently deleted.</p>
           <div className="flex gap-2 justify-end">
             <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => deleteConfirm && handleDelete(deleteConfirm)}>
-              <Trash2 className="w-4 h-4 mr-1" />Delete
+              <Trash2 className="w-4 h-4 mr-1" /> Delete
             </Button>
           </div>
         </DialogContent>

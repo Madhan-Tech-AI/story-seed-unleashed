@@ -1,22 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Trophy, Users, ArrowRight, Star, TrendingUp, Clock } from 'lucide-react';
+import { Calendar, Trophy, Users, ArrowRight, Star, TrendingUp, Clock, Gift } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
 const eventCategories = ['Upcoming', 'Live', 'All'];
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  INR: '₹',
-  JPY: '¥',
-  AUD: 'A$',
-  CAD: 'C$',
-};
 
 interface Event {
   id: string;
@@ -25,8 +15,6 @@ interface Event {
   banner_image: string | null;
   start_date: string | null;
   end_date: string | null;
-  prize_amount: number | null;
-  prize_currency: string | null;
   is_active: boolean;
   participantCount: number;
   status: 'live' | 'upcoming' | 'ended';
@@ -43,6 +31,7 @@ export const EventsSection = () => {
         .from('events')
         .select('*')
         .eq('is_active', true)
+        .eq('results_announced', false)
         .order('start_date', { ascending: true });
 
       if (error) throw error;
@@ -64,7 +53,13 @@ export const EventsSection = () => {
           else status = 'live';
 
           return {
-            ...event,
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            banner_image: event.banner_image,
+            start_date: event.start_date,
+            end_date: event.end_date,
+            is_active: event.is_active,
             participantCount: count || 0,
             status,
           };
@@ -98,12 +93,6 @@ export const EventsSection = () => {
     if (activeCategory === 'Live') return event.status === 'live';
     return true;
   });
-
-  const formatCurrency = (amount: number | null, currency: string | null) => {
-    if (!amount) return 'TBD';
-    const symbol = CURRENCY_SYMBOLS[currency || 'USD'] || currency || '$';
-    return `${symbol}${amount.toLocaleString()}`;
-  };
 
   const formatDateRange = (start: string | null, end: string | null) => {
     if (!start) return 'TBD';
@@ -220,9 +209,9 @@ export const EventsSection = () => {
                   <div className="flex items-center justify-between pt-4 border-t border-border">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-1">
-                        <Trophy className="w-4 h-4 text-secondary" />
-                        <span className="font-semibold text-foreground">
-                          {formatCurrency(event.prize_amount, event.prize_currency)}
+                        <Gift className="w-4 h-4 text-secondary" />
+                        <span className="font-semibold text-foreground text-sm">
+                          Rewards for winners
                         </span>
                       </div>
                       <div className="flex items-center gap-1">

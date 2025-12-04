@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trophy, Calendar, Award, Medal, DollarSign } from 'lucide-react';
+import { Trophy, Calendar, Award, Medal, Gift } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -10,8 +10,6 @@ interface EventResult {
   name: string;
   description: string | null;
   end_date: string | null;
-  prize_amount: number | null;
-  prize_currency: string | null;
   results_announced: boolean;
   winner: { id: string; first_name: string; last_name: string; story_title: string } | null;
   runner_up: { id: string; first_name: string; last_name: string; story_title: string } | null;
@@ -19,16 +17,6 @@ interface EventResult {
   userRegistration: { id: string; story_title: string } | null;
   userPosition: 'winner' | 'runner_up' | 'second_runner_up' | 'participant' | null;
 }
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  INR: '₹',
-  JPY: '¥',
-  AUD: 'A$',
-  CAD: 'C$',
-};
 
 const UserResults = () => {
   const { user } = useAuth();
@@ -147,8 +135,6 @@ const UserResults = () => {
             name: event.name,
             description: event.description,
             end_date: event.end_date,
-            prize_amount: event.prize_amount,
-            prize_currency: event.prize_currency,
             results_announced: event.results_announced,
             winner,
             runner_up,
@@ -189,12 +175,6 @@ const UserResults = () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
-
-  const formatCurrency = (amount: number | null, currency: string | null) => {
-    if (!amount) return 'TBD';
-    const symbol = CURRENCY_SYMBOLS[currency || 'USD'] || currency || '$';
-    return `${symbol}${amount.toLocaleString()}`;
-  };
 
   const getPositionBadge = (position: EventResult['userPosition']) => {
     switch (position) {
@@ -268,15 +248,13 @@ const UserResults = () => {
                     {event.winner && (
                       <div className="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
                         <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-white font-bold">1</div>
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium text-foreground">{event.winner.first_name} {event.winner.last_name}</p>
                           <p className="text-sm text-muted-foreground">{event.winner.story_title}</p>
                         </div>
-                        {event.prize_amount && (
-                          <span className="ml-auto text-yellow-600 font-semibold">
-                            {formatCurrency(event.prize_amount, event.prize_currency)}
-                          </span>
-                        )}
+                        <span className="text-yellow-600 font-medium flex items-center gap-1">
+                          <Gift className="w-4 h-4" /> Rewarded
+                        </span>
                       </div>
                     )}
                     {event.runner_up && (

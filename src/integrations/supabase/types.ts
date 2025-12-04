@@ -157,8 +157,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
-          prize_amount: number | null
-          prize_currency: string | null
           results_announced: boolean | null
           runner_up_id: string | null
           second_runner_up_id: string | null
@@ -174,8 +172,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
-          prize_amount?: number | null
-          prize_currency?: string | null
           results_announced?: boolean | null
           runner_up_id?: string | null
           second_runner_up_id?: string | null
@@ -191,8 +187,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
-          prize_amount?: number | null
-          prize_currency?: string | null
           results_announced?: boolean | null
           runner_up_id?: string | null
           second_runner_up_id?: string | null

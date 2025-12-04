@@ -3,19 +3,8 @@ import { PlusCircle, Upload, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-
-const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-];
 
 const AdminCreate = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,8 +19,6 @@ const AdminCreate = () => {
     startDate: '',
     endDate: '',
     description: '',
-    prizeAmount: '',
-    prizeCurrency: 'USD',
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,8 +80,6 @@ const AdminCreate = () => {
           description: formData.description,
           banner_image: bannerUrl,
           is_active: true,
-          prize_amount: formData.prizeAmount ? parseFloat(formData.prizeAmount) : null,
-          prize_currency: formData.prizeCurrency,
         });
 
       if (insertError) {
@@ -106,7 +91,7 @@ const AdminCreate = () => {
       toast({ title: 'Competition Created! 🎉', description: 'The new competition is now live.' });
 
       // Reset form
-      setFormData({ name: '', startDate: '', endDate: '', description: '', prizeAmount: '', prizeCurrency: 'USD' });
+      setFormData({ name: '', startDate: '', endDate: '', description: '' });
       setBannerFile(null);
       setBannerPreview(null);
     } catch (error: any) {
@@ -119,8 +104,6 @@ const AdminCreate = () => {
       setIsSubmitting(false);
     }
   };
-
-  const selectedCurrency = CURRENCIES.find(c => c.code === formData.prizeCurrency);
 
   return (
     <div className="space-y-6 page-enter max-w-2xl">
@@ -173,48 +156,6 @@ const AdminCreate = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
-          </div>
-
-          {/* Prize Details */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Prize Details</label>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Currency</label>
-                <Select
-                  value={formData.prizeCurrency}
-                  onValueChange={(value) => setFormData({ ...formData, prizeCurrency: value })}
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {CURRENCIES.map((currency) => (
-                      <SelectItem key={currency.code} value={currency.code}>
-                        {currency.symbol} - {currency.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs text-muted-foreground">Prize Amount</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    {selectedCurrency?.symbol}
-                  </span>
-                  <Input 
-                    type="number"
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="pl-8"
-                    value={formData.prizeAmount}
-                    onChange={(e) => setFormData({ ...formData, prizeAmount: e.target.value })}
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-2">
