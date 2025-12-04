@@ -195,9 +195,9 @@ const AdminCompetitions = () => {
       const { error } = await supabase
         .from('events')
         .update({
-          winner_id: winnerSelections.winner_id || null,
-          runner_up_id: winnerSelections.runner_up_id || null,
-          second_runner_up_id: winnerSelections.second_runner_up_id || null,
+          winner_id: winnerSelections.winner_id && winnerSelections.winner_id !== 'none' ? winnerSelections.winner_id : null,
+          runner_up_id: winnerSelections.runner_up_id && winnerSelections.runner_up_id !== 'none' ? winnerSelections.runner_up_id : null,
+          second_runner_up_id: winnerSelections.second_runner_up_id && winnerSelections.second_runner_up_id !== 'none' ? winnerSelections.second_runner_up_id : null,
           results_announced: true,
         })
         .eq('id', winnersDialog.id);
@@ -425,11 +425,11 @@ const AdminCompetitions = () => {
                     value={winnerSelections.winner_id}
                     onValueChange={(value) => setWinnerSelections({ ...winnerSelections, winner_id: value })}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select winner" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background max-h-60">
-                      <SelectItem value="">None</SelectItem>
+                    <SelectContent className="bg-card border-border z-50">
+                      <SelectItem value="none">None</SelectItem>
                       {participants.map((p) => (
                         <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.runner_up_id || p.id === winnerSelections.second_runner_up_id}>
                           {p.first_name} {p.last_name} - {p.story_title}
@@ -448,11 +448,11 @@ const AdminCompetitions = () => {
                     value={winnerSelections.runner_up_id}
                     onValueChange={(value) => setWinnerSelections({ ...winnerSelections, runner_up_id: value })}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select runner up" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background max-h-60">
-                      <SelectItem value="">None</SelectItem>
+                    <SelectContent className="bg-card border-border z-50">
+                      <SelectItem value="none">None</SelectItem>
                       {participants.map((p) => (
                         <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.second_runner_up_id}>
                           {p.first_name} {p.last_name} - {p.story_title}
@@ -471,11 +471,11 @@ const AdminCompetitions = () => {
                     value={winnerSelections.second_runner_up_id}
                     onValueChange={(value) => setWinnerSelections({ ...winnerSelections, second_runner_up_id: value })}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-card border-border">
                       <SelectValue placeholder="Select second runner up" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background max-h-60">
-                      <SelectItem value="">None</SelectItem>
+                    <SelectContent className="bg-card border-border z-50">
+                      <SelectItem value="none">None</SelectItem>
                       {participants.map((p) => (
                         <SelectItem key={p.id} value={p.id} disabled={p.id === winnerSelections.winner_id || p.id === winnerSelections.runner_up_id}>
                           {p.first_name} {p.last_name} - {p.story_title}
