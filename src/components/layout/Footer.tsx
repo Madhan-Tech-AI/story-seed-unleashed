@@ -13,12 +13,6 @@ const footerLinks = {
   legal: [
     { name: 'Terms & Conditions', path: '/terms' },
     { name: 'Privacy Policy', path: '/privacy' },
-    { name: 'FAQ', path: '/faq' },
-  ],
-  portals: [
-    { name: 'User Portal', path: '/user' },
-    { name: 'Judge Portal', path: '/judge' },
-    { name: 'Admin Portal', path: '/admin' },
   ],
 };
 
@@ -81,7 +75,7 @@ export const Footer = () => {
             </ul>
           </div>
 
-          {/* Legal & Portals */}
+          {/* Legal */}
           <div>
             <h4 className="font-display font-semibold text-lg mb-4">Legal</h4>
             <ul className="space-y-2 mb-6">
@@ -90,19 +84,6 @@ export const Footer = () => {
                   <Link
                     to={link.path}
                     className="text-primary-foreground/70 hover:text-primary transition-colors text-sm"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <h4 className="font-display font-semibold text-lg mb-4">Portals</h4>
-            <ul className="space-y-2">
-              {footerLinks.portals.map((link) => (
-                <li key={link.path}>
-                  <Link
-                    to={link.path}
-                    className="text-primary-foreground/70 hover:text-secondary transition-colors text-sm"
                   >
                     {link.name}
                   </Link>
