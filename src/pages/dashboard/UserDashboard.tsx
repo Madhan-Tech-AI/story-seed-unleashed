@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Trophy, FileText, ArrowRight, Loader2 } from 'lucide-react';
+import { Calendar, Trophy, FileText, ArrowRight, Loader2, Eye, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { StatsCard } from '@/components/dashboard/StatsCard';
@@ -12,12 +12,15 @@ interface Registration {
   category: string;
   created_at: string;
   event_id: string | null;
+  overall_votes: number;
+  overall_views: number;
   events?: { name: string } | null;
 }
 
 interface UserStats {
   totalSubmissions: number;
   totalVotes: number;
+  totalViews: number;
   rank: number;
   registeredEvents: number;
 }
@@ -27,6 +30,7 @@ const UserDashboard = () => {
   const [stats, setStats] = useState<UserStats>({
     totalSubmissions: 0,
     totalVotes: 0,
+    totalViews: 0,
     rank: 0,
     registeredEvents: 0,
   });
@@ -38,18 +42,19 @@ const UserDashboard = () => {
       if (!user?.id) return;
 
       try {
-        // Fetch user's registrations with event names
+        // Fetch user's registrations with event names, votes, and views
         const { data: registrations, error: regError } = await supabase
           .from('registrations')
-          .select('id, story_title, category, created_at, event_id, events(name)')
+          .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, events(name)')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
         if (regError) {
           console.error('Error fetching registrations:', regError);
-        } else {
-          setSubmissions(registrations || []);
+          return;
         }
+
+        setSubmissions(registrations || []);
 
         // Count unique registered events
         const uniqueEventIds = new Set(
@@ -58,32 +63,20 @@ const UserDashboard = () => {
             .filter((id): id is string => id !== null)
         );
 
-        // Fetch total votes for all user's registrations
-        const registrationIds = (registrations || []).map(r => r.id);
-        let totalVotes = 0;
+        // Calculate total votes and views from user's registrations
+        const totalVotes = (registrations || []).reduce((sum, r) => sum + (r.overall_votes || 0), 0);
+        const totalViews = (registrations || []).reduce((sum, r) => sum + (r.overall_views || 0), 0);
 
-        if (registrationIds.length > 0) {
-          const { data: votesData, error: votesError } = await supabase
-            .from('votes')
-            .select('score')
-            .in('registration_id', registrationIds);
-
-          if (!votesError && votesData) {
-            totalVotes = votesData.reduce((sum, v) => sum + v.score, 0);
-          }
-        }
-
-        // Calculate rank based on total votes (fetch all users' votes)
-        const { data: allVotes } = await supabase
-          .from('votes')
-          .select('registration_id, score, registrations(user_id)');
+        // Calculate rank based on total votes across all users
+        const { data: allRegistrations } = await supabase
+          .from('registrations')
+          .select('user_id, overall_votes');
 
         // Group votes by user
         const userVotesMap = new Map<string, number>();
-        (allVotes || []).forEach((vote: any) => {
-          const votedUserId = vote.registrations?.user_id;
-          if (votedUserId) {
-            userVotesMap.set(votedUserId, (userVotesMap.get(votedUserId) || 0) + vote.score);
+        (allRegistrations || []).forEach((reg) => {
+          if (reg.user_id) {
+            userVotesMap.set(reg.user_id, (userVotesMap.get(reg.user_id) || 0) + (reg.overall_votes || 0));
           }
         });
 
@@ -95,6 +88,7 @@ const UserDashboard = () => {
         setStats({
           totalSubmissions: registrations?.length || 0,
           totalVotes,
+          totalViews,
           rank: userRank || 0,
           registeredEvents: uniqueEventIds.size,
         });
@@ -107,20 +101,44 @@ const UserDashboard = () => {
 
     fetchUserData();
 
-    // Set up realtime subscription for votes
+    // Set up realtime subscriptions
+    const registrationsChannel = supabase
+      .channel('user-registrations-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'registrations' },
+        () => {
+          fetchUserData();
+        }
+      )
+      .subscribe();
+
     const votesChannel = supabase
       .channel('user-votes-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'votes' },
         () => {
-          fetchUserData(); // Refresh data on vote changes
+          fetchUserData();
+        }
+      )
+      .subscribe();
+
+    const viewsChannel = supabase
+      .channel('user-views-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'views' },
+        () => {
+          fetchUserData();
         }
       )
       .subscribe();
 
     return () => {
+      supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(votesChannel);
+      supabase.removeChannel(viewsChannel);
     };
   }, [user?.id]);
 
@@ -145,7 +163,7 @@ const UserDashboard = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="Registered Events"
           value={stats.registeredEvents}
@@ -165,10 +183,16 @@ const UserDashboard = () => {
           iconColor="text-accent"
         />
         <StatsCard
+          title="Total Views"
+          value={stats.totalViews.toLocaleString()}
+          icon={Eye}
+          iconColor="text-primary"
+        />
+        <StatsCard
           title="Rank"
           value={stats.rank > 0 ? `#${stats.rank}` : '-'}
-          icon={Trophy}
-          iconColor="text-primary"
+          icon={TrendingUp}
+          iconColor="text-secondary"
         />
       </div>
 
@@ -205,9 +229,16 @@ const UserDashboard = () => {
                     <span className="text-muted-foreground">
                       {sub.events?.name || 'Unknown Event'}
                     </span>
-                    <span className="text-muted-foreground">
-                      {new Date(sub.created_at).toLocaleDateString()}
-                    </span>
+                    <div className="flex items-center gap-3 text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Trophy className="w-3 h-3" />
+                        {sub.overall_votes}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Eye className="w-3 h-3" />
+                        {sub.overall_views}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))
@@ -243,6 +274,12 @@ const UserDashboard = () => {
               <Button variant="outline" className="w-full justify-start">
                 <FileText className="w-4 h-4 mr-2" />
                 View My Registrations
+              </Button>
+            </Link>
+            <Link to="/leaderboard" className="block">
+              <Button variant="outline" className="w-full justify-start">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                View Leaderboard
               </Button>
             </Link>
           </div>

@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Eye, TrendingUp, Trophy, Medal, Crown, Copy, Check } from 'lucide-react';
+import { Eye, TrendingUp, Trophy, Medal, Crown, Copy, Check, Flame, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const leaderboardTabs = ['Leaderboard', 'Trending Stories', 'Top Viewed Stories'];
+const leaderboardTabs = ['Leaderboard', 'Trending', 'Most Viewed'];
 
 interface LeaderboardEntry {
   id: string;
@@ -14,8 +14,9 @@ interface LeaderboardEntry {
   age: number;
   category: string;
   overall_votes: number;
-  views_count: number;
+  overall_views: number;
   user_id: string | null;
+  trending_score?: number;
 }
 
 const Leaderboard = () => {
@@ -28,25 +29,17 @@ const Leaderboard = () => {
     try {
       const { data: registrations, error } = await supabase
         .from('registrations')
-        .select('id, story_title, first_name, last_name, age, category, overall_votes, user_id');
+        .select('id, story_title, first_name, last_name, age, category, overall_votes, overall_views, user_id');
 
       if (error) throw error;
 
-      const entriesWithViews = await Promise.all(
-        (registrations || []).map(async (reg) => {
-          const { count } = await supabase
-            .from('views')
-            .select('*', { count: 'exact', head: true })
-            .eq('registration_id', reg.id);
+      // Calculate trending score for each entry
+      const entriesWithTrending = (registrations || []).map((reg) => ({
+        ...reg,
+        trending_score: (reg.overall_votes || 0) * 0.7 + (reg.overall_views || 0) * 0.3,
+      }));
 
-          return {
-            ...reg,
-            views_count: count || 0,
-          };
-        })
-      );
-
-      setEntries(entriesWithViews);
+      setEntries(entriesWithTrending);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
     } finally {
@@ -71,59 +64,63 @@ const Leaderboard = () => {
       })
       .subscribe();
 
+    const votesChannel = supabase
+      .channel('leaderboard-votes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
+        fetchLeaderboard();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(viewsChannel);
+      supabase.removeChannel(votesChannel);
     };
   }, []);
 
   const getSortedEntries = () => {
     const sorted = [...entries];
-    if (activeTab === 'Top Viewed Stories') {
-      return sorted.sort((a, b) => b.views_count - a.views_count);
+    if (activeTab === 'Most Viewed') {
+      return sorted.sort((a, b) => (b.overall_views || 0) - (a.overall_views || 0));
     }
-    if (activeTab === 'Trending Stories') {
-      return sorted.sort((a, b) => {
-        const aTrend = a.overall_votes * 0.7 + a.views_count * 0.3;
-        const bTrend = b.overall_votes * 0.7 + b.views_count * 0.3;
-        return bTrend - aTrend;
-      });
+    if (activeTab === 'Trending') {
+      return sorted.sort((a, b) => (b.trending_score || 0) - (a.trending_score || 0));
     }
-    return sorted.sort((a, b) => b.overall_votes - a.overall_votes);
+    return sorted.sort((a, b) => (b.overall_votes || 0) - (a.overall_votes || 0));
   };
 
   const sortedEntries = getSortedEntries();
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown className="w-6 h-6 text-yellow-400" />;
-    if (rank === 2) return <Medal className="w-6 h-6 text-gray-300" />;
-    if (rank === 3) return <Medal className="w-6 h-6 text-amber-500" />;
-    return null;
+    if (rank === 1) return <Crown className="w-5 h-5" />;
+    if (rank === 2) return <Medal className="w-5 h-5" />;
+    if (rank === 3) return <Medal className="w-5 h-5" />;
+    return <span className="font-bold text-lg">#{rank}</span>;
   };
 
-  const getRankBadgeColor = (rank: number) => {
-    if (rank === 1) return 'bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 text-yellow-900 shadow-[0_0_20px_rgba(234,179,8,0.5)]';
-    if (rank === 2) return 'bg-gradient-to-br from-gray-300 via-gray-400 to-gray-500 text-gray-900 shadow-[0_0_15px_rgba(156,163,175,0.5)]';
-    if (rank === 3) return 'bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-amber-900 shadow-[0_0_15px_rgba(245,158,11,0.5)]';
-    return 'bg-muted text-muted-foreground';
+  const getRankStyle = (rank: number) => {
+    if (rank === 1) return 'from-yellow-400 to-amber-500 text-yellow-900 shadow-lg shadow-yellow-500/30';
+    if (rank === 2) return 'from-slate-300 to-slate-400 text-slate-800 shadow-lg shadow-slate-400/30';
+    if (rank === 3) return 'from-amber-500 to-orange-600 text-amber-900 shadow-lg shadow-amber-500/30';
+    return 'from-muted to-muted text-muted-foreground';
   };
 
-  const getCardStyle = (rank: number) => {
-    if (rank === 1) return 'border-yellow-500/50 bg-gradient-to-r from-yellow-500/10 to-transparent ring-2 ring-yellow-500/20';
-    if (rank === 2) return 'border-gray-400/50 bg-gradient-to-r from-gray-400/10 to-transparent ring-1 ring-gray-400/20';
-    if (rank === 3) return 'border-amber-500/50 bg-gradient-to-r from-amber-500/10 to-transparent ring-1 ring-amber-500/20';
+  const getCardBorder = (rank: number) => {
+    if (rank === 1) return 'border-yellow-400/50 shadow-lg shadow-yellow-500/10';
+    if (rank === 2) return 'border-slate-400/50 shadow-md shadow-slate-400/10';
+    if (rank === 3) return 'border-amber-500/50 shadow-md shadow-amber-500/10';
     return 'border-border/50';
   };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      Fantasy: 'bg-purple-500/90',
-      Adventure: 'bg-green-500/90',
-      'Sci-Fi': 'bg-blue-500/90',
-      Family: 'bg-pink-500/90',
-      Humor: 'bg-orange-500/90',
+      Fantasy: 'bg-purple-500/20 text-purple-700 border-purple-500/30',
+      Adventure: 'bg-green-500/20 text-green-700 border-green-500/30',
+      'Sci-Fi': 'bg-blue-500/20 text-blue-700 border-blue-500/30',
+      Family: 'bg-pink-500/20 text-pink-700 border-pink-500/30',
+      Humor: 'bg-orange-500/20 text-orange-700 border-orange-500/30',
     };
-    return colors[category] || 'bg-primary/90';
+    return colors[category] || 'bg-primary/20 text-primary border-primary/30';
   };
 
   const copyUserId = (userId: string | null) => {
@@ -136,147 +133,149 @@ const Leaderboard = () => {
 
   const truncateId = (id: string) => `${id.slice(0, 8)}...`;
 
+  const getTabIcon = (tab: string) => {
+    if (tab === 'Leaderboard') return <Trophy className="w-4 h-4" />;
+    if (tab === 'Trending') return <Flame className="w-4 h-4" />;
+    if (tab === 'Most Viewed') return <Eye className="w-4 h-4" />;
+    return null;
+  };
+
   return (
-    <div className="page-enter">
+    <div className="page-enter min-h-screen bg-background">
       {/* Hero */}
-      <section className="py-20 bg-gradient-warm relative overflow-hidden">
-        <div className="absolute inset-0">
-          <div className="absolute top-10 left-10 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-yellow-500/5 rounded-full blur-3xl" />
+      <section className="py-16 md:py-24 bg-gradient-to-b from-primary/5 via-background to-background relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
         </div>
         <div className="container mx-auto px-4 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/20 rounded-full mb-6">
-            <Trophy className="w-5 h-5 text-yellow-500" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-full mb-6">
+            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
             <span className="text-sm font-medium text-yellow-600">Live Rankings</span>
           </div>
-          <h1 className="font-display text-5xl md:text-6xl font-bold text-foreground mb-4">
-            <span className="text-gradient">Leaderboard</span>
+          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
+            Story <span className="text-gradient">Leaderboard</span>
           </h1>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Discover the top-performing stories, trending content, and most viewed narratives from our community
+          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+            Discover top stories by votes, trending content, and most viewed narratives from our creative community
           </p>
         </div>
       </section>
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-8 md:py-12">
         {/* Tabs */}
-        <div className="flex flex-wrap justify-center gap-3 mb-10">
+        <div className="flex flex-wrap justify-center gap-2 md:gap-3 mb-8 md:mb-12">
           {leaderboardTabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={cn(
-                'px-6 py-3.5 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center gap-2',
+                'px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center gap-2',
                 activeTab === tab
-                  ? 'bg-primary text-primary-foreground shadow-glow scale-105'
-                  : 'bg-card text-muted-foreground hover:bg-muted border border-border hover:scale-102'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
+                  : 'bg-card text-muted-foreground hover:bg-muted border border-border hover:border-primary/20'
               )}
             >
-              {tab === 'Leaderboard' && <Trophy className="w-4 h-4" />}
-              {tab === 'Trending Stories' && <TrendingUp className="w-4 h-4" />}
-              {tab === 'Top Viewed Stories' && <Eye className="w-4 h-4" />}
+              {getTabIcon(tab)}
               {tab}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
           ) : sortedEntries.length === 0 ? (
-            <div className="bg-card p-8 rounded-2xl border border-border/50 text-center">
-              <Trophy className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No entries yet. Be the first to participate!</p>
+            <div className="bg-card p-12 rounded-2xl border border-border/50 text-center">
+              <Trophy className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">No Entries Yet</h3>
+              <p className="text-muted-foreground">Be the first to participate and claim the top spot!</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {sortedEntries.map((entry, index) => {
                 const displayRank = index + 1;
+                const isTopThree = displayRank <= 3;
                 
                 return (
                   <div
                     key={entry.id}
                     className={cn(
-                      'bg-card rounded-2xl p-5 flex flex-col sm:flex-row gap-5 card-hover border animate-fade-in transition-all',
-                      getCardStyle(displayRank)
+                      'bg-card rounded-xl md:rounded-2xl p-4 md:p-5 border transition-all hover:shadow-md',
+                      getCardBorder(displayRank),
+                      'animate-fade-in'
                     )}
-                    style={{ animationDelay: `${index * 0.05}s` }}
+                    style={{ animationDelay: `${index * 0.03}s` }}
                   >
-                    {/* Rank Badge */}
-                    <div className="flex items-center justify-center sm:justify-start">
+                    <div className="flex items-center gap-3 md:gap-4">
+                      {/* Rank Badge */}
                       <div
                         className={cn(
-                          'w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-bold transition-transform hover:scale-110',
-                          getRankBadgeColor(displayRank)
+                          'w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center bg-gradient-to-br flex-shrink-0',
+                          getRankStyle(displayRank)
                         )}
                       >
                         {getRankIcon(displayRank)}
-                        <span className={cn('text-lg', displayRank <= 3 ? 'text-xs mt-0.5' : '')}>
-                          {displayRank > 3 ? `#${displayRank}` : ''}
-                        </span>
                       </div>
-                    </div>
 
-                    {/* Category Badge */}
-                    <div className="relative w-full sm:w-28 aspect-video sm:aspect-square rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <span className={cn('px-4 py-2 text-white text-sm font-semibold rounded-lg shadow-md', getCategoryColor(entry.category))}>
-                        {entry.category}
-                      </span>
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-xl font-semibold text-foreground mb-1 line-clamp-1">
-                          {entry.story_title}
-                        </h3>
-                        <p className="text-muted-foreground text-sm">
-                          By <span className="font-medium text-foreground">{entry.first_name} {entry.last_name}</span>, Age {entry.age}
-                        </p>
-                      </div>
-                      
-                      <div className="flex flex-wrap items-center gap-4 text-sm">
-                        <span className="flex items-center gap-2 px-3 py-1.5 bg-secondary/10 rounded-lg">
-                          <Trophy className="w-4 h-4 text-secondary" />
-                          <span className="font-bold text-foreground">{entry.overall_votes.toLocaleString()}</span>
-                          <span className="text-muted-foreground">votes</span>
-                        </span>
-                        <span className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 rounded-lg">
-                          <Eye className="w-4 h-4 text-primary" />
-                          <span className="font-bold text-foreground">{entry.views_count.toLocaleString()}</span>
-                          <span className="text-muted-foreground">views</span>
-                        </span>
-                        {activeTab === 'Trending Stories' && (
-                          <span className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-lg">
-                            <TrendingUp className="w-4 h-4" />
-                            <span className="font-semibold">Trending</span>
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <h3 className="font-semibold text-foreground text-base md:text-lg line-clamp-1">
+                            {entry.story_title}
+                          </h3>
+                          <span className={cn(
+                            'px-2 py-0.5 text-xs font-medium rounded-md border flex-shrink-0 hidden sm:block',
+                            getCategoryColor(entry.category)
+                          )}>
+                            {entry.category}
                           </span>
-                        )}
+                        </div>
+                        <p className="text-muted-foreground text-sm mb-2">
+                          By {entry.first_name} {entry.last_name}, Age {entry.age}
+                        </p>
+                        
+                        {/* Stats Row */}
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+                            <span className="font-semibold text-foreground">{(entry.overall_votes || 0).toLocaleString()}</span>
+                            <span className="text-muted-foreground text-xs">votes</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <Eye className="w-3.5 h-3.5 text-blue-500" />
+                            <span className="font-semibold text-foreground">{(entry.overall_views || 0).toLocaleString()}</span>
+                            <span className="text-muted-foreground text-xs">views</span>
+                          </div>
+                          {activeTab === 'Trending' && (
+                            <div className="flex items-center gap-1.5 text-sm">
+                              <Flame className="w-3.5 h-3.5 text-orange-500" />
+                              <span className="font-semibold text-orange-600">{Math.round(entry.trending_score || 0)}</span>
+                              <span className="text-muted-foreground text-xs">score</span>
+                            </div>
+                          )}
+                          
+                          {/* User ID - Copy Button */}
+                          {entry.user_id && (
+                            <button
+                              onClick={() => copyUserId(entry.user_id)}
+                              className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 hover:bg-muted rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors ml-auto"
+                              title="Copy User ID to search their videos"
+                            >
+                              <code className="font-mono">{truncateId(entry.user_id)}</code>
+                              {copiedId === entry.user_id ? (
+                                <Check className="w-3 h-3 text-green-500" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-
-                    {/* User ID */}
-                    {entry.user_id && (
-                      <div className="flex sm:flex-col items-center justify-end gap-2">
-                        <button
-                          onClick={() => copyUserId(entry.user_id)}
-                          className="flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors group"
-                          title="Copy User ID to search their videos"
-                        >
-                          <span className="hidden sm:inline">ID:</span>
-                          <code className="font-mono">{truncateId(entry.user_id)}</code>
-                          {copiedId === entry.user_id ? (
-                            <Check className="w-3.5 h-3.5 text-green-500" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5 group-hover:text-primary" />
-                          )}
-                        </button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
