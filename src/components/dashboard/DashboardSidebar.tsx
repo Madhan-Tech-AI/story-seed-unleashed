@@ -39,13 +39,13 @@ const buildUserNavItems = (t: (key: string) => string): NavItem[] => [
   { name: t('explore'), path: '/user/dashboard/explore', icon: Compass },
   { name: t('events'), path: '/user/dashboard/events', icon: Calendar },
   { name: t('myRegistrations'), path: '/user/dashboard/registrations', icon: Trophy },
+  { name: 'Results', path: '/user/dashboard/results', icon: BarChart3 },
   { name: t('myProfile'), path: '/user/dashboard/profile', icon: User },
 ];
 
 const judgeNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/judge/dashboard', icon: LayoutDashboard },
   { name: 'Submissions', path: '/judge/dashboard/submissions', icon: FileText },
-  { name: 'Voting Panel', path: '/judge/dashboard/voting', icon: Vote },
   { name: 'Entries', path: '/judge/dashboard/entries', icon: Eye },
   { name: 'My Profile', path: '/judge/dashboard/profile', icon: User },
 ];
