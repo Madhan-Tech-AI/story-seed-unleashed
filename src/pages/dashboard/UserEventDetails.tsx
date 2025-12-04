@@ -58,10 +58,17 @@ const UserEventDetails = () => {
         .from('events')
         .select('*')
         .eq('id', id)
-        .single();
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (error || !eventData) {
+      if (error) {
         console.error('Error fetching event:', error);
+        navigate('/user/dashboard/events', { replace: true });
+        return;
+      }
+
+      if (!eventData) {
+        console.log('Event not found or not active');
         navigate('/user/dashboard/events', { replace: true });
         return;
       }
