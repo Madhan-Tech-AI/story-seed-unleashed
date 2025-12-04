@@ -117,20 +117,17 @@ export const DashboardSidebar = ({
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <Link to="/" className="flex items-center gap-3">
-          <div
+          <img
+            src="/storyseed-dashboard-logo.png"
+            alt="Story Seed Studio"
             className={cn(
-              'w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br',
-              roleColors[role || 'user']
+              'h-10 w-auto object-contain drop-shadow-sm',
+              collapsed && 'mx-auto'
             )}
-          >
-            <span className="text-primary-foreground font-display font-bold text-lg">S</span>
-          </div>
+          />
 
           {!collapsed && (
-            <div className="flex flex-col animate-fade-in">
-              <span className="font-display font-bold text-sidebar-foreground">Story Seed</span>
-              <span className="text-xs text-muted-foreground capitalize">{role} Portal</span>
-            </div>
+            <span className="sr-only">Story Seed Studio {role} dashboard</span>
           )}
         </Link>
       </div>
