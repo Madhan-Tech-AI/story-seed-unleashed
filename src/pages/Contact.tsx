@@ -1,21 +1,46 @@
 import { useState } from 'react';
-import { Send, MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { Send, MapPin, Phone, Mail, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const Contact = () => {
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast({
-      title: 'Message Sent! 📬',
-      description: "Thank you for reaching out. We'll get back to you within 24 hours.",
-    });
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('contact_submissions')
+        .insert({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject.trim(),
+          message: formData.message.trim(),
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Message Sent! 📬',
+        description: "Thank you for reaching out. We'll get back to you within 24 hours.",
+      });
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: 'Failed to send message. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -138,9 +163,18 @@ const Contact = () => {
                     required
                   />
                 </div>
-                <Button type="submit" variant="hero" size="lg" className="w-full">
-                  Send Message
-                  <Send className="w-5 h-5" />
+                <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      Send Message
+                      <Send className="w-5 h-5" />
+                    </>
+                  )}
                 </Button>
               </form>
             </div>

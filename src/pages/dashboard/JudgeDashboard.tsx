@@ -383,12 +383,6 @@ const JudgeDashboard = () => {
               ))
             )}
           </div>
-          <Link to="/judge/dashboard/voting" className="block mt-4">
-            <Button variant="hero" className="w-full">
-              Open Voting Panel
-              <Vote className="w-4 h-4" />
-            </Button>
-          </Link>
         </div>
 
         {/* Recent Reviews */}
