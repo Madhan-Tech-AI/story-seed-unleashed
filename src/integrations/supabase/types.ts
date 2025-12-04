@@ -194,6 +194,45 @@ export type Database = {
           },
         ]
       }
+      gallery_images: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          event_date: string | null
+          featured: boolean | null
+          id: string
+          image_url: string
+          participants: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          featured?: boolean | null
+          id?: string
+          image_url: string
+          participants?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          featured?: boolean | null
+          id?: string
+          image_url?: string
+          participants?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       judge_settings: {
         Row: {
           bio: string | null

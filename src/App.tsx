@@ -48,6 +48,7 @@ import AdminUsers from "./pages/dashboard/AdminUsers";
 import AdminOutcomes from "./pages/dashboard/AdminOutcomes";
 import AdminNotifications from "./pages/dashboard/AdminNotifications";
 import AdminSettings from "./pages/dashboard/AdminSettings";
+import AdminGallery from "./pages/dashboard/AdminGallery";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,7 @@ const App = () => (
               <Route path="users" element={<AdminUsers />} />
               <Route path="outcomes" element={<AdminOutcomes />} />
               <Route path="notifications" element={<AdminNotifications />} />
+              <Route path="gallery" element={<AdminGallery />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
 
