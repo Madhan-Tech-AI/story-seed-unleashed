@@ -220,7 +220,7 @@ const UserExplore = () => {
     return null;
   }, [query, registrations]);
 
-  const openPlayer = (story: Registration) => {
+  const openPlayer = (story: Registration, searchedUserId?: string) => {
     setSelectedStory(story);
     setIsPlayerOpen(true);
     setShowVotingPanel(false);
@@ -232,6 +232,10 @@ const UserExplore = () => {
     // Track view if user is logged in
     if (user?.id) {
       trackView(story.id);
+      // Track trending interaction if this was from a user_id search
+      if (searchedUserId) {
+        trackTrendingInteraction(story.id, searchedUserId);
+      }
     }
   };
 
@@ -255,6 +259,19 @@ const UserExplore = () => {
       }
     } catch (error) {
       console.error('Error tracking view:', error);
+    }
+  };
+
+  const trackTrendingInteraction = async (registrationId: string, searchedUserId: string) => {
+    try {
+      await supabase.from('trending_interactions').insert({
+        registration_id: registrationId,
+        user_id: user?.id || null,
+        interaction_type: 'search_watch',
+        searched_user_id: searchedUserId,
+      });
+    } catch (error) {
+      console.error('Error tracking trending interaction:', error);
     }
   };
 
@@ -414,7 +431,7 @@ const UserExplore = () => {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {searchedUserStories.map((reg) => (
-              <StoryCard key={reg.id} story={reg} onPlay={openPlayer} />
+              <StoryCard key={reg.id} story={reg} onPlay={(story) => openPlayer(story, query)} />
             ))}
           </div>
         </div>

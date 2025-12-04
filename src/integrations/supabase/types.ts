@@ -433,6 +433,33 @@ export type Database = {
           },
         ]
       }
+      trending_interactions: {
+        Row: {
+          created_at: string
+          id: string
+          interaction_type: string
+          registration_id: string
+          searched_user_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          registration_id: string
+          searched_user_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          registration_id?: string
+          searched_user_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

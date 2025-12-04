@@ -16,6 +16,7 @@ interface LeaderboardEntry {
   overall_votes: number;
   overall_views: number;
   user_id: string | null;
+  trending_count?: number;
   trending_score?: number;
 }
 
@@ -27,16 +28,29 @@ const Leaderboard = () => {
 
   const fetchLeaderboard = async () => {
     try {
+      // Fetch registrations
       const { data: registrations, error } = await supabase
         .from('registrations')
         .select('id, story_title, first_name, last_name, age, category, overall_votes, overall_views, user_id');
 
       if (error) throw error;
 
+      // Fetch trending interactions count for each registration
+      const { data: trendingData } = await supabase
+        .from('trending_interactions')
+        .select('registration_id');
+
+      // Count trending interactions per registration
+      const trendingCounts: Record<string, number> = {};
+      (trendingData || []).forEach((t) => {
+        trendingCounts[t.registration_id] = (trendingCounts[t.registration_id] || 0) + 1;
+      });
+
       // Calculate trending score for each entry
       const entriesWithTrending = (registrations || []).map((reg) => ({
         ...reg,
-        trending_score: (reg.overall_votes || 0) * 0.7 + (reg.overall_views || 0) * 0.3,
+        trending_count: trendingCounts[reg.id] || 0,
+        trending_score: (trendingCounts[reg.id] || 0) * 2 + (reg.overall_votes || 0) * 0.5 + (reg.overall_views || 0) * 0.3,
       }));
 
       setEntries(entriesWithTrending);
@@ -71,10 +85,18 @@ const Leaderboard = () => {
       })
       .subscribe();
 
+    const trendingChannel = supabase
+      .channel('leaderboard-trending')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trending_interactions' }, () => {
+        fetchLeaderboard();
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(registrationsChannel);
       supabase.removeChannel(viewsChannel);
       supabase.removeChannel(votesChannel);
+      supabase.removeChannel(trendingChannel);
     };
   }, []);
 
@@ -251,11 +273,18 @@ const Leaderboard = () => {
                             <span className="text-muted-foreground text-xs">views</span>
                           </div>
                           {activeTab === 'Trending' && (
-                            <div className="flex items-center gap-1.5 text-sm">
-                              <Flame className="w-3.5 h-3.5 text-orange-500" />
-                              <span className="font-semibold text-orange-600">{Math.round(entry.trending_score || 0)}</span>
-                              <span className="text-muted-foreground text-xs">score</span>
-                            </div>
+                            <>
+                              <div className="flex items-center gap-1.5 text-sm">
+                                <TrendingUp className="w-3.5 h-3.5 text-purple-500" />
+                                <span className="font-semibold text-purple-600">{entry.trending_count || 0}</span>
+                                <span className="text-muted-foreground text-xs">searches</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-sm">
+                                <Flame className="w-3.5 h-3.5 text-orange-500" />
+                                <span className="font-semibold text-orange-600">{Math.round(entry.trending_score || 0)}</span>
+                                <span className="text-muted-foreground text-xs">score</span>
+                              </div>
+                            </>
                           )}
                           
                           {/* User ID - Copy Button */}
