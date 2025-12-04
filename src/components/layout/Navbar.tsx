@@ -71,11 +71,11 @@ export const Navbar = () => {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center group">
-            <div className="h-12 px-3 py-1 bg-primary rounded-lg flex items-center justify-center transition-transform group-hover:scale-105 shadow-md">
+            <div className="h-12 px-4 py-1 bg-[#9B1B1B] rounded-lg flex items-center justify-center transition-transform group-hover:scale-105 shadow-md overflow-hidden">
               <img 
                 src="/assets/logo.png" 
                 alt="Story Seed Studio" 
-                className="h-8 w-auto"
+                className="h-12 w-auto scale-150"
               />
             </div>
           </Link>
