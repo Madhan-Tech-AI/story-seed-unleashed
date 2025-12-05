@@ -55,13 +55,15 @@ export const Footer = () => {
           {/* Brand */}
           <div className="space-y-3 sm:space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center overflow-hidden">
-                <img 
-                  src="/assets/logo.png" 
-                  alt="Story Seed Studio" 
-                  className="w-full h-full object-contain p-1"
-                />
-              </div>
+              <Link to="/" className="flex items-center group">
+                <div className="h-10 sm:h-12 px-2 sm:px-4 py-1 bg-[#9B1B1B] rounded-lg flex items-center justify-center transition-transform group-hover:scale-105 shadow-md overflow-hidden">
+                  <img 
+                    src="/assets/logo.png" 
+                    alt="Story Seed Studio" 
+                    className="h-10 sm:h-12 w-auto scale-150"
+                  />
+                </div>
+              </Link>
               <div className="flex flex-col">
                 <span className="font-display font-bold text-base sm:text-lg leading-tight">Story Seed</span>
                 <span className="text-[10px] text-primary-foreground/60 tracking-wider uppercase">
