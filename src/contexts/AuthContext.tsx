@@ -67,16 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Clean up: Clear any stored avatar for email/password users (one-time cleanup for old users)
         if (profileData?.avatar) {
           // Update profile to clear avatar field (fire and forget, don't wait)
+          // Silently cleanup invalid avatar URL
           supabase
             .from('profiles')
             .update({ avatar: null })
             .eq('id', supabaseUser.id)
-            .then(() => {
-              // Silently handle - this is just cleanup
-            })
-            .catch(() => {
-              // Silently handle errors
-            });
+            .then(() => { /* cleanup done */ });
         }
         
         avatar = '';
