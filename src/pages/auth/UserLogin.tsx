@@ -13,12 +13,6 @@ const UserLogin = () => {
         <div className="bg-white/95 backdrop-blur-md border border-border/60 shadow-2xl rounded-3xl p-6">
           <LoginForm role="user" redirectPath="/user/dashboard" />
         </div>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <span>Other portals: </span>
-          <Link to="/judge" className="text-primary hover:underline">Judge</Link>
-          <span> • </span>
-          <Link to="/admin" className="text-primary hover:underline">Admin</Link>
-        </div>
       </div>
     </div>
   );
