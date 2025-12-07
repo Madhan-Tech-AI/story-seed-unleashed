@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Medal, Crown, Copy, Check, Star, Users, Calendar } from 'lucide-react';
+import { Trophy, Medal, Crown, Copy, Check, Star, Users, Calendar, Gavel } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface LeaderboardEntry {
+interface CommunityEntry {
   id: string;
   story_title: string;
   first_name: string;
@@ -18,13 +18,27 @@ interface LeaderboardEntry {
   vote_count: number;
 }
 
+interface JudgeEntry {
+  id: string;
+  story_title: string;
+  first_name: string;
+  last_name: string;
+  age: number;
+  category: string;
+  user_id: string | null;
+  event_id: string | null;
+  average_score: number;
+  total_reviews: number;
+}
+
 interface Event {
   id: string;
   name: string;
 }
 
 const Leaderboard = () => {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [communityEntries, setCommunityEntries] = useState<CommunityEntry[]>([]);
+  const [judgeEntries, setJudgeEntries] = useState<JudgeEntry[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -38,7 +52,7 @@ const Leaderboard = () => {
     setEvents(data || []);
   };
 
-  const fetchLeaderboard = async () => {
+  const fetchLeaderboards = async () => {
     try {
       setLoading(true);
       
@@ -53,10 +67,12 @@ const Leaderboard = () => {
       const { data: registrations, error } = await query;
       if (error) throw error;
 
+      // Fetch all votes with scores
       const { data: votes } = await supabase
         .from('votes')
         .select('registration_id, user_id, score');
 
+      // Fetch judge user IDs
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -67,21 +83,44 @@ const Leaderboard = () => {
           .map(ur => ur.user_id)
       );
 
+      // Calculate community votes (non-judge votes)
       const voteCounts: Record<string, number> = {};
+      const scoreData: Record<string, { total: number; count: number }> = {};
+      
       (votes || []).forEach(vote => {
         if (!judgeUserIds.has(vote.user_id)) {
+          // Community vote
           voteCounts[vote.registration_id] = (voteCounts[vote.registration_id] || 0) + 1;
+        } else {
+          // Judge vote
+          if (!scoreData[vote.registration_id]) {
+            scoreData[vote.registration_id] = { total: 0, count: 0 };
+          }
+          scoreData[vote.registration_id].total += vote.score;
+          scoreData[vote.registration_id].count += 1;
         }
       });
 
-      const entriesWithVotes = (registrations || []).map(reg => ({
+      // Community leaderboard entries
+      const communityEntriesWithVotes = (registrations || []).map(reg => ({
         ...reg,
         vote_count: voteCounts[reg.id] || 0,
       }));
 
-      setEntries(entriesWithVotes);
+      // Judge leaderboard entries
+      const judgeEntriesWithScores = (registrations || []).map(reg => {
+        const data = scoreData[reg.id];
+        return {
+          ...reg,
+          average_score: data ? parseFloat((data.total / data.count).toFixed(1)) : 0,
+          total_reviews: data ? data.count : 0,
+        };
+      });
+
+      setCommunityEntries(communityEntriesWithVotes);
+      setJudgeEntries(judgeEntriesWithScores);
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      console.error('Error fetching leaderboards:', error);
     } finally {
       setLoading(false);
     }
@@ -92,19 +131,19 @@ const Leaderboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchLeaderboard();
+    fetchLeaderboards();
 
     const votesChannel = supabase
       .channel('leaderboard-votes-public')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, () => {
-        fetchLeaderboard();
+        fetchLeaderboards();
       })
       .subscribe();
 
     const registrationsChannel = supabase
       .channel('leaderboard-registrations-public')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => {
-        fetchLeaderboard();
+        fetchLeaderboards();
       })
       .subscribe();
 
@@ -114,9 +153,20 @@ const Leaderboard = () => {
     };
   }, [selectedEvent]);
 
-  const sortedEntries = [...entries].sort((a, b) => b.vote_count - a.vote_count);
-  const topThree = sortedEntries.slice(0, 3);
-  const restEntries = sortedEntries.slice(3);
+  // Community leaderboard sorting
+  const sortedCommunityEntries = [...communityEntries].sort((a, b) => b.vote_count - a.vote_count);
+  const communityTopThree = sortedCommunityEntries.slice(0, 3);
+  const communityRestEntries = sortedCommunityEntries.slice(3);
+
+  // Judge leaderboard sorting
+  const sortedJudgeEntries = [...judgeEntries]
+    .filter(e => e.total_reviews > 0)
+    .sort((a, b) => {
+      if (b.average_score !== a.average_score) return b.average_score - a.average_score;
+      return b.total_reviews - a.total_reviews;
+    });
+  const judgeTopThree = sortedJudgeEntries.slice(0, 3);
+  const judgeRestEntries = sortedJudgeEntries.slice(3);
 
   const getRankStyle = (rank: number) => {
     if (rank === 1) return 'from-yellow-400 to-amber-500 text-yellow-900';
@@ -167,6 +217,166 @@ const Leaderboard = () => {
     return 'th';
   };
 
+  const renderCommunityCard = (entry: CommunityEntry, actualRank: number) => {
+    const isFirst = actualRank === 1;
+    return (
+      <div
+        key={entry.id}
+        className={cn(
+          'bg-card rounded-2xl p-4 md:p-6 border-2 transition-all hover:scale-[1.02] relative overflow-hidden',
+          getCardShadow(actualRank),
+          isFirst && 'md:-mt-4 md:mb-4'
+        )}
+      >
+        <div className="absolute top-0 right-0">
+          <div className={cn(
+            'px-3 py-1 md:px-4 md:py-2 rounded-bl-2xl font-bold text-sm md:text-lg',
+            getRankBadgeColor(actualRank)
+          )}>
+            {actualRank}{getOrdinalSuffix(actualRank)}
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-3 md:mb-4">
+          <div className={cn(
+            'w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center bg-gradient-to-br',
+            getRankStyle(actualRank)
+          )}>
+            {actualRank === 1 ? (
+              <Crown className="w-8 h-8 md:w-10 md:h-10" />
+            ) : (
+              <Medal className="w-8 h-8 md:w-10 md:h-10" />
+            )}
+          </div>
+        </div>
+
+        <div className="text-center mb-3 md:mb-4">
+          <h3 className="font-bold text-base md:text-lg text-foreground mb-1 line-clamp-1">
+            {entry.first_name} {entry.last_name}
+          </h3>
+          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
+            {entry.story_title}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 md:gap-4 mb-3 md:mb-4">
+          <div className="text-center">
+            <p className="text-xl md:text-2xl font-bold text-foreground">{entry.vote_count}</p>
+            <p className="text-xs text-muted-foreground">Votes</p>
+          </div>
+          <div className="w-px h-6 md:h-8 bg-border" />
+          <div className="text-center">
+            <p className="text-xl md:text-2xl font-bold text-foreground">{entry.overall_views}</p>
+            <p className="text-xs text-muted-foreground">Views</p>
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-2 md:mb-0">
+          <span className={cn(
+            'px-2 md:px-3 py-1 text-xs font-medium rounded-full border',
+            getCategoryColor(entry.category)
+          )}>
+            {entry.category}
+          </span>
+        </div>
+
+        {entry.user_id && (
+          <button
+            onClick={() => copyUserId(entry.user_id)}
+            className="mt-2 md:mt-4 w-full flex items-center justify-center gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <code className="font-mono">{truncateId(entry.user_id)}</code>
+            {copiedId === entry.user_id ? (
+              <Check className="w-3 h-3 text-green-500" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderJudgeCard = (entry: JudgeEntry, actualRank: number) => {
+    const isFirst = actualRank === 1;
+    return (
+      <div
+        key={entry.id}
+        className={cn(
+          'bg-card rounded-2xl p-4 md:p-6 border-2 transition-all hover:scale-[1.02] relative overflow-hidden',
+          getCardShadow(actualRank),
+          isFirst && 'md:-mt-4 md:mb-4'
+        )}
+      >
+        <div className="absolute top-0 right-0">
+          <div className={cn(
+            'px-3 py-1 md:px-4 md:py-2 rounded-bl-2xl font-bold text-sm md:text-lg',
+            getRankBadgeColor(actualRank)
+          )}>
+            {actualRank}{getOrdinalSuffix(actualRank)}
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-3 md:mb-4">
+          <div className={cn(
+            'w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center bg-gradient-to-br',
+            getRankStyle(actualRank)
+          )}>
+            {actualRank === 1 ? (
+              <Crown className="w-8 h-8 md:w-10 md:h-10" />
+            ) : (
+              <Medal className="w-8 h-8 md:w-10 md:h-10" />
+            )}
+          </div>
+        </div>
+
+        <div className="text-center mb-3 md:mb-4">
+          <h3 className="font-bold text-base md:text-lg text-foreground mb-1 line-clamp-1">
+            {entry.first_name} {entry.last_name}
+          </h3>
+          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
+            {entry.story_title}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 md:gap-4 mb-3 md:mb-4">
+          <div className="text-center">
+            <p className="text-xl md:text-2xl font-bold text-foreground">{entry.average_score}</p>
+            <p className="text-xs text-muted-foreground">Avg /10</p>
+          </div>
+          <div className="w-px h-6 md:h-8 bg-border" />
+          <div className="text-center">
+            <p className="text-xl md:text-2xl font-bold text-foreground">{entry.total_reviews}</p>
+            <p className="text-xs text-muted-foreground">Reviews</p>
+          </div>
+        </div>
+
+        <div className="flex justify-center mb-2 md:mb-0">
+          <span className={cn(
+            'px-2 md:px-3 py-1 text-xs font-medium rounded-full border',
+            getCategoryColor(entry.category)
+          )}>
+            {entry.category}
+          </span>
+        </div>
+
+        {entry.user_id && (
+          <button
+            onClick={() => copyUserId(entry.user_id)}
+            className="mt-2 md:mt-4 w-full flex items-center justify-center gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <code className="font-mono">{truncateId(entry.user_id)}</code>
+            {copiedId === entry.user_id ? (
+              <Check className="w-3 h-3 text-green-500" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="page-enter min-h-screen bg-background">
       {/* Hero */}
@@ -184,20 +394,14 @@ const Leaderboard = () => {
             Story <span className="text-gradient">Champions</span>
           </h1>
           <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-            Rankings based on community votes - see which stories resonate with the audience
+            Compare community favorites with expert judge evaluations
           </p>
         </div>
       </section>
 
       <div className="container mx-auto px-4 py-8 md:py-12">
-        {/* Header and Event Filter */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8 md:mb-12">
-          <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl border border-border/50">
-            <Users className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-foreground">Community Leaderboard</span>
-          </div>
-
-          {/* Event Filter */}
+        {/* Event Filter */}
+        <div className="flex flex-col md:flex-row items-center justify-center gap-4 mb-8 md:mb-12">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
             <Select value={selectedEvent} onValueChange={setSelectedEvent}>
@@ -214,201 +418,206 @@ const Leaderboard = () => {
           </div>
         </div>
 
-        {/* Content */}
-        <div className="max-w-5xl mx-auto">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : sortedEntries.length === 0 ? (
-            <div className="bg-card p-12 rounded-2xl border border-border/50 text-center">
-              <Trophy className="w-16 h-16 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-xl font-semibold text-foreground mb-2">No Entries Yet</h3>
-              <p className="text-muted-foreground">Be the first to participate and claim the top spot!</p>
-            </div>
-          ) : (
-            <>
-              {/* Champions Section - Top 3 */}
-              {topThree.length > 0 && (
-                <div className="mb-12">
-                  <div className="text-center mb-8">
-                    <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-                      <span className="text-gradient">Champions</span>
-                    </h2>
-                    <p className="text-muted-foreground text-sm">Community Favorites</p>
-                  </div>
+        {/* Split Leaderboards */}
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-6">
+            {/* Community Leaderboard */}
+            <div className="space-y-6 lg:border-r lg:border-border/50 lg:pr-6">
+              <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl border border-border/50">
+                <Users className="w-5 h-5 text-primary" />
+                <span className="font-semibold text-foreground">Community Leaderboard</span>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                    {[topThree[1], topThree[0], topThree[2]].filter(Boolean).map((entry) => {
-                      if (!entry) return null;
-                      const actualRank = sortedEntries.indexOf(entry) + 1;
-                      const isFirst = actualRank === 1;
-                      
-                      return (
-                        <div
-                          key={entry.id}
-                          className={cn(
-                            'bg-card rounded-2xl p-6 border-2 transition-all hover:scale-[1.02] relative overflow-hidden',
-                            getCardShadow(actualRank),
-                            isFirst && 'md:-mt-4 md:mb-4'
-                          )}
-                        >
-                          {/* Rank Badge */}
-                          <div className="absolute top-0 right-0">
-                            <div className={cn(
-                              'px-4 py-2 rounded-bl-2xl font-bold text-lg',
-                              getRankBadgeColor(actualRank)
-                            )}>
-                              {actualRank}{getOrdinalSuffix(actualRank)}
-                            </div>
-                          </div>
-
-                          {/* Avatar/Icon */}
-                          <div className="flex justify-center mb-4">
-                            <div className={cn(
-                              'w-20 h-20 rounded-full flex items-center justify-center bg-gradient-to-br',
-                              getRankStyle(actualRank)
-                            )}>
-                              {actualRank === 1 ? (
-                                <Crown className="w-10 h-10" />
-                              ) : (
-                                <Medal className="w-10 h-10" />
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Name & Title */}
-                          <div className="text-center mb-4">
-                            <h3 className="font-bold text-lg text-foreground mb-1 line-clamp-1">
-                              {entry.first_name} {entry.last_name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground line-clamp-1">
-                              {entry.story_title}
-                            </p>
-                          </div>
-
-                          {/* Stats */}
-                          <div className="flex items-center justify-center gap-4 mb-4">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-foreground">{entry.vote_count}</p>
-                              <p className="text-xs text-muted-foreground">Votes</p>
-                            </div>
-                            <div className="w-px h-8 bg-border" />
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-foreground">{entry.overall_views}</p>
-                              <p className="text-xs text-muted-foreground">Views</p>
-                            </div>
-                          </div>
-
-                          {/* Category */}
-                          <div className="flex justify-center">
-                            <span className={cn(
-                              'px-3 py-1 text-xs font-medium rounded-full border',
-                              getCategoryColor(entry.category)
-                            )}>
-                              {entry.category}
-                            </span>
-                          </div>
-
-                          {/* User ID */}
-                          {entry.user_id && (
-                            <button
-                              onClick={() => copyUserId(entry.user_id)}
-                              className="mt-4 w-full flex items-center justify-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              <code className="font-mono">{truncateId(entry.user_id)}</code>
-                              {copiedId === entry.user_id ? (
-                                <Check className="w-3 h-3 text-green-500" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+              {sortedCommunityEntries.length === 0 ? (
+                <div className="bg-card p-8 md:p-12 rounded-2xl border border-border/50 text-center">
+                  <Trophy className="w-12 h-12 md:w-16 md:h-16 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg md:text-xl font-semibold text-foreground mb-2">No Entries Yet</h3>
+                  <p className="text-sm md:text-base text-muted-foreground">Be the first to participate!</p>
                 </div>
-              )}
-
-              {/* Rest of Entries - Table Style */}
-              {restEntries.length > 0 && (
-                <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/30">
-                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground">Rank</th>
-                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground">Participant</th>
-                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden md:table-cell">Story</th>
-                          <th className="text-left py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Category</th>
-                          <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground">Votes</th>
-                          <th className="text-center py-4 px-4 text-sm font-semibold text-muted-foreground hidden sm:table-cell">Views</th>
-                          <th className="text-right py-4 px-4 text-sm font-semibold text-muted-foreground">ID</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {restEntries.map((entry, index) => {
-                          const rank = index + 4;
-                          return (
-                            <tr 
-                              key={entry.id} 
-                              className="border-b border-border/50 hover:bg-muted/20 transition-colors"
-                            >
-                              <td className="py-4 px-4">
-                                <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center font-bold text-sm text-muted-foreground">
-                                  {rank}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4">
-                                <div>
-                                  <p className="font-semibold text-foreground">{entry.first_name} {entry.last_name}</p>
-                                  <p className="text-xs text-muted-foreground">Age {entry.age}</p>
-                                </div>
-                              </td>
-                              <td className="py-4 px-4 hidden md:table-cell">
-                                <p className="text-foreground line-clamp-1">{entry.story_title}</p>
-                              </td>
-                              <td className="py-4 px-4 hidden sm:table-cell">
-                                <span className={cn(
-                                  'px-2 py-1 text-xs font-medium rounded-full border',
-                                  getCategoryColor(entry.category)
-                                )}>
-                                  {entry.category}
-                                </span>
-                              </td>
-                              <td className="py-4 px-4 text-center">
-                                <span className="font-bold text-foreground">{entry.vote_count}</span>
-                              </td>
-                              <td className="py-4 px-4 text-center hidden sm:table-cell">
-                                <span className="text-muted-foreground">{entry.overall_views}</span>
-                              </td>
-                              <td className="py-4 px-4 text-right">
-                                {entry.user_id && (
-                                  <button
-                                    onClick={() => copyUserId(entry.user_id)}
-                                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                                  >
-                                    <code className="font-mono">{truncateId(entry.user_id)}</code>
-                                    {copiedId === entry.user_id ? (
-                                      <Check className="w-3 h-3 text-green-500" />
-                                    ) : (
-                                      <Copy className="w-3 h-3" />
-                                    )}
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
+              ) : (
+                <>
+                  {/* Community Top 3 */}
+                  {communityTopThree.length > 0 && (
+                    <div className="mb-6">
+                      <div className="text-center mb-4 md:mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-foreground mb-1">
+                          <span className="text-gradient">Community Favorites</span>
+                        </h2>
+                        <p className="text-xs md:text-sm text-muted-foreground">Most Voted Stories</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 md:gap-4">
+                        {[communityTopThree[1], communityTopThree[0], communityTopThree[2]].filter(Boolean).map((entry) => {
+                          if (!entry) return null;
+                          const actualRank = sortedCommunityEntries.indexOf(entry) + 1;
+                          return renderCommunityCard(entry, actualRank);
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Community Rest */}
+                  {communityRestEntries.length > 0 && (
+                    <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                              <th className="text-left py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Rank</th>
+                              <th className="text-left py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Participant</th>
+                              <th className="text-center py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Votes</th>
+                              <th className="text-right py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">ID</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {communityRestEntries.map((entry, index) => {
+                              const rank = index + 4;
+                              return (
+                                <tr 
+                                  key={entry.id} 
+                                  className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                                >
+                                  <td className="py-3 px-3">
+                                    <span className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center font-bold text-xs md:text-sm text-muted-foreground">
+                                      {rank}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div>
+                                      <p className="font-semibold text-xs md:text-sm text-foreground">{entry.first_name} {entry.last_name}</p>
+                                      <p className="text-xs text-muted-foreground line-clamp-1">{entry.story_title}</p>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="font-bold text-xs md:text-sm text-foreground">{entry.vote_count}</span>
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    {entry.user_id && (
+                                      <button
+                                        onClick={() => copyUserId(entry.user_id)}
+                                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                      >
+                                        <code className="font-mono">{truncateId(entry.user_id)}</code>
+                                        {copiedId === entry.user_id ? (
+                                          <Check className="w-3 h-3 text-green-500" />
+                                        ) : (
+                                          <Copy className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-            </>
-          )}
-        </div>
+            </div>
+
+            {/* Judge Leaderboard */}
+            <div className="space-y-6 lg:pl-6">
+              <div className="flex items-center gap-3 px-4 py-2 bg-card rounded-xl border border-border/50">
+                <Gavel className="w-5 h-5 text-secondary" />
+                <span className="font-semibold text-foreground">Judge Leaderboard</span>
+              </div>
+
+              {sortedJudgeEntries.length === 0 ? (
+                <div className="bg-card p-8 md:p-12 rounded-2xl border border-border/50 text-center">
+                  <Trophy className="w-12 h-12 md:w-16 md:h-16 mx-auto text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg md:text-xl font-semibold text-foreground mb-2">No Reviews Yet</h3>
+                  <p className="text-sm md:text-base text-muted-foreground">No judge evaluations submitted yet.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Judge Top 3 */}
+                  {judgeTopThree.length > 0 && (
+                    <div className="mb-6">
+                      <div className="text-center mb-4 md:mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-foreground mb-1">
+                          <span className="text-gradient">Judge's Top Picks</span>
+                        </h2>
+                        <p className="text-xs md:text-sm text-muted-foreground">Expert Evaluations</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 md:gap-4">
+                        {[judgeTopThree[1], judgeTopThree[0], judgeTopThree[2]].filter(Boolean).map((entry) => {
+                          if (!entry) return null;
+                          const actualRank = sortedJudgeEntries.indexOf(entry) + 1;
+                          return renderJudgeCard(entry, actualRank);
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Judge Rest */}
+                  {judgeRestEntries.length > 0 && (
+                    <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                              <th className="text-left py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Rank</th>
+                              <th className="text-left py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Participant</th>
+                              <th className="text-center py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">Score</th>
+                              <th className="text-right py-3 px-3 text-xs md:text-sm font-semibold text-muted-foreground">ID</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {judgeRestEntries.map((entry, index) => {
+                              const rank = index + 4;
+                              return (
+                                <tr 
+                                  key={entry.id} 
+                                  className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                                >
+                                  <td className="py-3 px-3">
+                                    <span className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-muted flex items-center justify-center font-bold text-xs md:text-sm text-muted-foreground">
+                                      {rank}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    <div>
+                                      <p className="font-semibold text-xs md:text-sm text-foreground">{entry.first_name} {entry.last_name}</p>
+                                      <p className="text-xs text-muted-foreground line-clamp-1">{entry.story_title}</p>
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-3 text-center">
+                                    <span className="font-bold text-xs md:text-sm text-foreground">{entry.average_score}/10</span>
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    {entry.user_id && (
+                                      <button
+                                        onClick={() => copyUserId(entry.user_id)}
+                                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                      >
+                                        <code className="font-mono">{truncateId(entry.user_id)}</code>
+                                        {copiedId === entry.user_id ? (
+                                          <Check className="w-3 h-3 text-green-500" />
+                                        ) : (
+                                          <Copy className="w-3 h-3" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
