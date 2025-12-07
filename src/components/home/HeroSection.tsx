@@ -3,57 +3,121 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import slide1 from '@/assets/slides/slide-1.jpg';
-import slide2 from '@/assets/slides/slide-2.jpg';
-import slide3 from '@/assets/slides/slide-3.jpg';
+import { supabase } from '@/integrations/supabase/client';
 
-const heroSlides = [
-  {
-    id: 1,
-    title: 'Small Voices.',
-    subtitle: 'Big Dreams!',
-    description: "India's most joyful storytelling platform for children. Share your stories, compete with peers, and win exciting awards.",
-    image: slide1,
-  },
-  {
-    id: 2,
-    title: 'Unleash Your',
-    subtitle: 'Creativity!',
-    description: 'Join thousands of young storytellers in exciting competitions and workshops.',
-    image: slide2,
-  },
-  {
-    id: 3,
-    title: 'Every Story',
-    subtitle: 'Matters!',
-    description: 'From fairy tales to adventures, every story has the power to inspire and transform.',
-    image: slide3,
-  },
-];
+interface Event {
+  id: string;
+  name: string;
+  description: string | null;
+  banner_image: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: 'live' | 'upcoming' | 'ended';
+}
 
 export const HeroSection = () => {
+  const [events, setEvents] = useState<Event[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    const fetchEvents = async () => {
+      try {
+        const { data: eventsData, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('is_active', true)
+          .eq('results_announced', false)
+          .order('start_date', { ascending: true });
+
+        if (error) throw error;
+
+        const now = new Date();
+        const eventsWithStatus = (eventsData || []).map((event) => {
+          const start = event.start_date ? new Date(event.start_date) : null;
+          const end = event.end_date ? new Date(event.end_date) : null;
+          
+          let status: 'live' | 'upcoming' | 'ended' = 'upcoming';
+          if (start && now < start) status = 'upcoming';
+          else if (end && now > end) status = 'ended';
+          else status = 'live';
+
+          return {
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            banner_image: event.banner_image,
+            start_date: event.start_date,
+            end_date: event.end_date,
+            status,
+          };
+        });
+
+        setEvents(eventsWithStatus);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+
+    const channel = supabase
+      .channel('hero-events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, fetchEvents)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAutoPlaying || events.length === 0) return;
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+      setCurrentSlide((prev) => (prev + 1) % events.length);
     }, 5000);
     return () => clearInterval(timer);
-  }, [isAutoPlaying]);
+  }, [isAutoPlaying, events.length]);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+    if (events.length === 0) return;
+    setCurrentSlide((prev) => (prev + 1) % events.length);
     setIsAutoPlaying(false);
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
+    if (events.length === 0) return;
+    setCurrentSlide((prev) => (prev - 1 + events.length) % events.length);
     setIsAutoPlaying(false);
   };
 
-  const slide = heroSlides[currentSlide];
+  if (loading) {
+    return (
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </section>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
+        <div className="text-center">
+          <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-4">
+            Welcome to <span className="text-gradient">Story Seed Studio</span>
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground mb-8">
+            Check back soon for exciting events!
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const currentEvent = events[currentSlide];
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-gradient-to-br from-background via-background to-muted/30">
@@ -69,11 +133,7 @@ export const HeroSection = () => {
           <div className="space-y-8 text-left order-2 lg:order-1">
             <div key={currentSlide} className="animate-fade-in">
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-foreground">
-                <span>{slide.title}</span>
-                <br />
-                <span className="text-gradient bg-clip-text text-transparent bg-gradient-to-r from-primary via-red-500 to-gold">
-                  {slide.subtitle}
-                </span>
+                <span>{currentEvent.name}</span>
               </h1>
             </div>
             <p
@@ -81,13 +141,13 @@ export const HeroSection = () => {
               className="text-lg md:text-xl text-muted-foreground max-w-xl animate-fade-in"
               style={{ animationDelay: '0.1s' }}
             >
-              {slide.description}
+              {currentEvent.description || 'Join this exciting storytelling competition!'}
             </p>
             <div
               className="flex flex-col sm:flex-row gap-4 animate-fade-in"
               style={{ animationDelay: '0.2s' }}
             >
-              <Link to="/register">
+              <Link to={`/register?eventId=${currentEvent.id}`}>
                 <Button variant="hero" size="xl" className="shadow-xl">
                   Register Now
                 </Button>
@@ -98,14 +158,14 @@ export const HeroSection = () => {
                   size="xl"
                   className="border-primary/30 text-foreground hover:bg-primary/10 shadow-lg"
                 >
-                  View Competitions
+                  View All Events
                 </Button>
               </Link>
             </div>
 
             {/* Dots Indicator */}
             <div className="flex gap-2 pt-4">
-              {heroSlides.map((_, index) => (
+              {events.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => {
@@ -127,9 +187,9 @@ export const HeroSection = () => {
           {/* Right Slider */}
           <div className="relative order-1 lg:order-2">
             <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl">
-              {heroSlides.map((s, index) => (
+              {events.map((event, index) => (
                 <div
-                  key={s.id}
+                  key={event.id}
                   className={cn(
                     'absolute inset-0 transition-all duration-700 ease-in-out',
                     index === currentSlide
@@ -138,28 +198,32 @@ export const HeroSection = () => {
                   )}
                 >
                   <img
-                    src={s.image}
-                    alt={s.title}
+                    src={event.banner_image || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80'}
+                    alt={event.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
               ))}
 
               {/* Navigation Arrows */}
-              <button
-                onClick={prevSlide}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
-                aria-label="Previous slide"
-              >
-                <ChevronLeft className="w-5 h-5 text-foreground" />
-              </button>
-              <button
-                onClick={nextSlide}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
-                aria-label="Next slide"
-              >
-                <ChevronRight className="w-5 h-5 text-foreground" />
-              </button>
+              {events.length > 1 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
+                    aria-label="Previous slide"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-foreground" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm border border-border shadow-lg flex items-center justify-center hover:bg-background hover:scale-110 transition-all"
+                    aria-label="Next slide"
+                  >
+                    <ChevronRight className="w-5 h-5 text-foreground" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Decorative frame */}

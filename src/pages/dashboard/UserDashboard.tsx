@@ -3,8 +3,9 @@ import { Calendar, Trophy, FileText, ArrowRight, Loader2, Eye, TrendingUp } from
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { StatsCard } from '@/components/dashboard/StatsCard';
-import { useAuth } from '@/contexts/AuthContext';
+import { RegistrationsModal } from '@/components/dashboard/RegistrationsModal';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface Registration {
   id: string;
@@ -25,8 +26,12 @@ interface UserStats {
   registeredEvents: number;
 }
 
+// Get session ID for anonymous users
+const getSessionId = (): string | null => {
+  return localStorage.getItem('story_seed_session_id');
+};
+
 const UserDashboard = () => {
-  const { user } = useAuth();
   const [stats, setStats] = useState<UserStats>({
     totalSubmissions: 0,
     totalVotes: 0,
@@ -36,60 +41,45 @@ const UserDashboard = () => {
   });
   const [submissions, setSubmissions] = useState<Registration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRegistrationsModalOpen, setIsRegistrationsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
-      if (!user?.id) return;
+      const sessionId = getSessionId();
+      if (!sessionId) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
-        // Fetch user's registrations with event names, votes, and views
         const { data: registrations, error: regError } = await supabase
           .from('registrations')
           .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, events:events!registrations_event_id_fkey(name)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(10);
 
         if (regError) {
           console.error('Error fetching registrations:', regError);
+          setIsLoading(false);
           return;
         }
 
-        setSubmissions(registrations || []);
+        setSubmissions((registrations || []).slice(0, 5));
 
-        // Count unique registered events
         const uniqueEventIds = new Set(
           (registrations || [])
             .map(r => r.event_id)
             .filter((id): id is string => id !== null)
         );
 
-        // Calculate total votes and views from user's registrations
         const totalVotes = (registrations || []).reduce((sum, r) => sum + (r.overall_votes || 0), 0);
         const totalViews = (registrations || []).reduce((sum, r) => sum + (r.overall_views || 0), 0);
-
-        // Calculate rank based on total votes across all users
-        const { data: allRegistrations } = await supabase
-          .from('registrations')
-          .select('user_id, overall_votes');
-
-        // Group votes by user
-        const userVotesMap = new Map<string, number>();
-        (allRegistrations || []).forEach((reg) => {
-          if (reg.user_id) {
-            userVotesMap.set(reg.user_id, (userVotesMap.get(reg.user_id) || 0) + (reg.overall_votes || 0));
-          }
-        });
-
-        // Sort users by votes and find rank
-        const sortedUsers = Array.from(userVotesMap.entries())
-          .sort((a, b) => b[1] - a[1]);
-        const userRank = sortedUsers.findIndex(([userId]) => userId === user.id) + 1;
 
         setStats({
           totalSubmissions: registrations?.length || 0,
           totalVotes,
           totalViews,
-          rank: userRank || 0,
+          rank: 0,
           registeredEvents: uniqueEventIds.size,
         });
       } catch (error) {
@@ -101,7 +91,6 @@ const UserDashboard = () => {
 
     fetchUserData();
 
-    // Set up realtime subscriptions
     const registrationsChannel = supabase
       .channel('user-registrations-changes')
       .on(
@@ -113,34 +102,10 @@ const UserDashboard = () => {
       )
       .subscribe();
 
-    const votesChannel = supabase
-      .channel('user-votes-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'votes' },
-        () => {
-          fetchUserData();
-        }
-      )
-      .subscribe();
-
-    const viewsChannel = supabase
-      .channel('user-views-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'views' },
-        () => {
-          fetchUserData();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(registrationsChannel);
-      supabase.removeChannel(votesChannel);
-      supabase.removeChannel(viewsChannel);
     };
-  }, [user?.id]);
+  }, []);
 
   if (isLoading) {
     return (
@@ -151,140 +116,195 @@ const UserDashboard = () => {
   }
 
   return (
-    <div className="space-y-6 page-enter">
-      {/* Welcome */}
-      <div className="bg-gradient-hero rounded-2xl p-6 text-primary-foreground">
-        <h1 className="font-display text-2xl md:text-3xl font-bold mb-2">
-          Welcome back, {user?.name?.split(' ')[0]}! 👋
-        </h1>
-        <p className="text-primary-foreground/80">
-          Ready to share your next story with the world?
-        </p>
+    <div className="space-y-6 md:space-y-8 page-enter max-w-7xl mx-auto pb-8 md:pb-12">
+      {/* Welcome Banner with Gradient */}
+      <div 
+        className="relative rounded-3xl p-8 md:p-10 shadow-2xl hover:shadow-3xl transition-all duration-300 overflow-hidden group"
+        style={{
+          background: 'linear-gradient(to right, hsl(355, 82%, 56%), hsl(20, 90%, 55%), hsl(45, 100%, 51%))'
+        }}
+      >
+        {/* Content */}
+        <div className="relative z-10">
+          <h1 className="font-display text-3xl md:text-4xl font-bold mb-3 text-white">
+            Welcome to Your Dashboard! 👋
+          </h1>
+          <p className="text-white/90 text-lg">
+            Track your submissions, votes, and registrations all in one place.
+          </p>
+        </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatsCard
-          title="Registered Events"
-          value={stats.registeredEvents}
-          icon={Calendar}
-          iconColor="text-primary"
-        />
-        <StatsCard
-          title="Submissions"
-          value={stats.totalSubmissions}
-          icon={FileText}
-          iconColor="text-secondary"
-        />
-        <StatsCard
-          title="Total Votes"
-          value={stats.totalVotes.toLocaleString()}
-          icon={Trophy}
-          iconColor="text-accent"
-        />
-        <StatsCard
-          title="Total Views"
-          value={stats.totalViews.toLocaleString()}
-          icon={Eye}
-          iconColor="text-primary"
-        />
-        <StatsCard
-          title="Rank"
-          value={stats.rank > 0 ? `#${stats.rank}` : '-'}
-          icon={TrendingUp}
-          iconColor="text-secondary"
-        />
+      {/* Stats Row with Glass-morphism */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+        <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center justify-between mb-4">
+            <Calendar className={cn("w-8 h-8 text-primary transition-transform group-hover:scale-110")} />
+          </div>
+          <div className="text-3xl font-bold text-foreground mb-1">{stats.registeredEvents}</div>
+          <div className="text-sm text-muted-foreground">Registered Events</div>
+        </div>
+
+        <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center justify-between mb-4">
+            <Trophy className={cn("w-8 h-8 text-accent transition-transform group-hover:scale-110")} />
+          </div>
+          <div className="text-3xl font-bold text-foreground mb-1">{stats.totalVotes.toLocaleString()}</div>
+          <div className="text-sm text-muted-foreground">Total Votes</div>
+        </div>
+
+        <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center justify-between mb-4">
+            <Eye className={cn("w-8 h-8 text-primary transition-transform group-hover:scale-110")} />
+          </div>
+          <div className="text-3xl font-bold text-foreground mb-1">{stats.totalViews.toLocaleString()}</div>
+          <div className="text-sm text-muted-foreground">Total Views</div>
+        </div>
+
+        <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center justify-between mb-4">
+            <FileText className={cn("w-8 h-8 text-secondary transition-transform group-hover:scale-110")} />
+          </div>
+          <div className="text-3xl font-bold text-foreground mb-1">{stats.totalSubmissions}</div>
+          <div className="text-sm text-muted-foreground">Submissions</div>
+        </div>
+
+        <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 group">
+          <div className="flex items-center justify-between mb-4">
+            <TrendingUp className={cn("w-8 h-8 text-secondary transition-transform group-hover:scale-110")} />
+          </div>
+          <div className="text-3xl font-bold text-foreground mb-1">{stats.rank > 0 ? `#${stats.rank}` : '-'}</div>
+          <div className="text-sm text-muted-foreground">Rank</div>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* My Submissions */}
-        <div className="bg-card rounded-2xl p-6 border border-border/50">
+      {/* Quick Actions with Red Theme */}
+      <div className="relative rounded-3xl p-6 md:p-8 shadow-2xl hover:shadow-3xl transition-all duration-300">
+        <h2 className="font-display text-2xl md:text-3xl font-semibold text-foreground mb-6">
+          Quick Actions
+        </h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <Link to="/events" className="block group">
+            <div className="relative bg-primary/10 hover:bg-primary/20 border-2 border-primary/30 hover:border-primary/50 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <Trophy className="w-6 h-6 text-primary mb-3 transition-transform group-hover:scale-110" />
+              <h3 className="font-semibold text-foreground mb-1">Explore & Vote</h3>
+              <p className="text-sm text-muted-foreground">Vote for stories</p>
+            </div>
+          </Link>
+          <Link to="/events" className="block group">
+            <div className="relative bg-primary/10 hover:bg-primary/20 border-2 border-primary/30 hover:border-primary/50 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <Calendar className="w-6 h-6 text-primary mb-3 transition-transform group-hover:scale-110" />
+              <h3 className="font-semibold text-foreground mb-1">Browse Events</h3>
+              <p className="text-sm text-muted-foreground">View all events</p>
+            </div>
+          </Link>
+          <button 
+            onClick={() => setIsRegistrationsModalOpen(true)}
+            className="block group w-full text-left"
+          >
+            <div className="relative bg-primary/10 hover:bg-primary/20 border-2 border-primary/30 hover:border-primary/50 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <FileText className="w-6 h-6 text-primary mb-3 transition-transform group-hover:scale-110" />
+              <h3 className="font-semibold text-foreground mb-1">My Registrations</h3>
+              <p className="text-sm text-muted-foreground">View submissions</p>
+            </div>
+          </button>
+          <Link to="/leaderboard" className="block group">
+            <div className="relative bg-primary/10 hover:bg-primary/20 border-2 border-primary/30 hover:border-primary/50 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <TrendingUp className="w-6 h-6 text-primary mb-3 transition-transform group-hover:scale-110" />
+              <h3 className="font-semibold text-foreground mb-1">Leaderboard</h3>
+              <p className="text-sm text-muted-foreground">Check rankings</p>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* My Registrations with Enhanced Glass-morphism */}
+      <div className="relative backdrop-blur-xl bg-white/80 dark:bg-black/40 border border-white/30 dark:border-white/20 rounded-3xl p-6 md:p-8 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-[1.01] group/container overflow-hidden">
+        {/* Glass morphism overlay effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-white/10 dark:from-white/5 dark:via-transparent dark:to-white/5 pointer-events-none"></div>
+        
+        <div className="relative z-10">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-xl font-semibold text-foreground">
-              My Submissions
-            </h2>
-            <Link to="/user/dashboard/registrations" className="text-primary text-sm hover:underline">
-              View All
-            </Link>
+            <button 
+              onClick={() => setIsRegistrationsModalOpen(true)}
+              className="font-display text-2xl md:text-3xl font-semibold text-foreground group-hover/container:text-primary transition-colors hover:text-primary cursor-pointer text-left"
+            >
+              My Registrations
+            </button>
+            <button 
+              onClick={() => setIsRegistrationsModalOpen(true)}
+              className="text-primary text-sm hover:underline font-medium transition-all duration-300 hover:text-primary/80 hover:scale-105"
+            >
+              View All →
+            </button>
           </div>
           <div className="space-y-4">
             {submissions.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No submissions yet. Start by registering for an event!</p>
+              <div className="text-center py-12 text-muted-foreground">
+                <div className="relative backdrop-blur-lg bg-white/60 dark:bg-black/30 border border-white/40 dark:border-white/20 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] hover:border-primary/40 group/empty">
+                  <FileText className="w-16 h-16 mx-auto mb-4 opacity-50 group-hover/empty:opacity-70 transition-opacity" />
+                  <p className="text-lg font-medium">No submissions yet.</p>
+                  <p className="text-sm mt-2">Start by registering for an event!</p>
+                </div>
               </div>
             ) : (
-              submissions.slice(0, 3).map((sub) => (
+              submissions.map((sub, index) => (
                 <div
                   key={sub.id}
-                  className="p-4 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                  className={cn(
+                    "relative backdrop-blur-lg bg-white/70 dark:bg-black/30 border border-white/40 dark:border-white/20 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] hover:border-primary/50 group/item animate-fade-in overflow-hidden"
+                  )}
+                  style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-medium text-foreground">{sub.story_title}</p>
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                      {sub.category}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {sub.events?.name || 'Unknown Event'}
-                    </span>
-                    <div className="flex items-center gap-3 text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Trophy className="w-3 h-3" />
-                        {sub.overall_votes}
+                  {/* Hover gradient effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/0 to-primary/0 group-hover/item:from-primary/5 group-hover/item:via-primary/10 group-hover/item:to-primary/5 transition-all duration-300 pointer-events-none"></div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg text-foreground group-hover/item:text-primary transition-colors">
+                        {sub.story_title}
+                      </h3>
+                      <span className="px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-md bg-primary/30 dark:bg-primary/20 text-primary border border-primary/40 group-hover/item:bg-primary/40 group-hover/item:border-primary/60 transition-all duration-300">
+                        {sub.category}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Eye className="w-3 h-3" />
-                        {sub.overall_views}
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground group-hover/item:text-foreground transition-colors">
+                        {sub.events?.name || 'Unknown Event'}
                       </span>
+                      <div className="flex items-center gap-4 text-muted-foreground">
+                        <span className="flex items-center gap-1.5 group-hover/item:text-primary transition-colors">
+                          <Trophy className="w-4 h-4 group-hover/item:scale-110 transition-transform" />
+                          <span className="font-medium">{sub.overall_votes}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 group-hover/item:text-primary transition-colors">
+                          <Eye className="w-4 h-4 group-hover/item:scale-110 transition-transform" />
+                          <span className="font-medium">{sub.overall_views}</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))
             )}
           </div>
-          <Link to="/register" className="block mt-4">
-            <Button variant="hero" className="w-full">
+          <Link to="/register" className="block mt-6">
+            <Button 
+              variant="hero" 
+              className="w-full group/btn backdrop-blur-lg bg-primary/90 hover:bg-primary shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-[1.02] border border-primary/20 hover:border-primary/40"
+            >
               Submit New Story
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
             </Button>
           </Link>
         </div>
-
-        {/* Quick Actions */}
-        <div className="bg-card rounded-2xl p-6 border border-border/50">
-          <h2 className="font-display text-xl font-semibold text-foreground mb-6">
-            Quick Actions
-          </h2>
-          <div className="space-y-3">
-            <Link to="/user/dashboard/explore" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <Trophy className="w-4 h-4 mr-2" />
-                Explore & Vote Stories
-              </Button>
-            </Link>
-            <Link to="/user/dashboard/events" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <Calendar className="w-4 h-4 mr-2" />
-                Browse Events
-              </Button>
-            </Link>
-            <Link to="/user/dashboard/registrations" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <FileText className="w-4 h-4 mr-2" />
-                View My Registrations
-              </Button>
-            </Link>
-            <Link to="/leaderboard" className="block">
-              <Button variant="outline" className="w-full justify-start">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                View Leaderboard
-              </Button>
-            </Link>
-          </div>
-        </div>
       </div>
+
+      {/* Registrations Modal */}
+      <RegistrationsModal 
+        open={isRegistrationsModalOpen} 
+        onOpenChange={setIsRegistrationsModalOpen} 
+      />
     </div>
   );
 };

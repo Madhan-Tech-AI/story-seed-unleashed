@@ -18,26 +18,32 @@ const About = () => {
 
   const missionPoints = [
     {
+      icon: Mic,
       title: 'Empower Every Child\'s Voice',
       description: 'Help children express themselves confidently through storytelling, improving communication and emotional awareness.',
     },
     {
+      icon: Sparkles,
       title: 'Spark Imagination and Creativity',
       description: 'Provide inspiring topics, fun challenges, and creative themes that unlock a child\'s imagination.',
     },
     {
+      icon: Shield,
       title: 'Build a Safe & Joyful Learning Space',
       description: 'Create a secure digital environment where parents can upload storytelling videos and preserve childhood memories.',
     },
     {
+      icon: BookOpen,
       title: 'Encourage Learning Through Fun',
       description: 'Blend education with entertainment (Edutainment) and make learning a joyful experience.',
     },
     {
+      icon: Award,
       title: 'Celebrate Talent Through Recognition',
       description: 'Recognize and reward children\'s creativity through the Little Voices Awards.',
     },
     {
+      icon: Globe,
       title: 'Connect a Global Community',
       description: 'Bring children, parents, educators, and creators together on a shared platform.',
     },
@@ -231,26 +237,29 @@ const About = () => {
               Our Mission
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {missionPoints.map((point, index) => (
-                <div
-                  key={index}
-                  className="bg-card rounded-xl sm:rounded-2xl p-6 shadow-sm border border-border/50 hover:shadow-md hover:border-primary/20 transition-all"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-primary font-bold text-lg sm:text-xl">{index + 1}</span>
-                    </div>
-                    <div>
-                      <h3 className="font-display text-base sm:text-lg font-semibold text-foreground mb-2">
-                        {point.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                        {point.description}
-                      </p>
+              {missionPoints.map((point, index) => {
+                const IconComponent = point.icon;
+                return (
+                  <div
+                    key={index}
+                    className="bg-card rounded-xl sm:rounded-2xl p-6 shadow-sm border border-border/50 hover:shadow-md hover:border-primary/20 transition-all group"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                        <IconComponent className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-display text-base sm:text-lg font-semibold text-foreground mb-2">
+                          {point.title}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                          {point.description}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

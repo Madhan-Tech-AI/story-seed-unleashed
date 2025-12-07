@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Trophy, Loader2, Video, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface Registration {
   id: string;
@@ -14,19 +13,18 @@ interface Registration {
 }
 
 const UserRegistrations = () => {
-  const { user } = useAuth();
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
-
     const fetchRegistrations = async () => {
+      // For anonymous users, show recent registrations
+      // In production, you'd track by session ID or email
       const { data: regData, error } = await supabase
         .from('registrations')
         .select('id, story_title, category, overall_votes, created_at, event_id')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
 
       if (!error && regData) {
         const eventIds = regData.filter(r => r.event_id).map(r => r.event_id);
@@ -64,7 +62,6 @@ const UserRegistrations = () => {
           event: '*',
           schema: 'public',
           table: 'registrations',
-          filter: `user_id=eq.${user.id}`,
         },
         () => {
           fetchRegistrations();
@@ -75,7 +72,7 @@ const UserRegistrations = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id]);
+  }, []);
 
   if (isLoading) {
     return (

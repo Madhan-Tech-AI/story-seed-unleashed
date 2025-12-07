@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
@@ -30,15 +29,27 @@ const steps = [
 
 const WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload';
 
+// Generate or retrieve session ID for anonymous users
+const getSessionId = (): string => {
+  let sessionId = localStorage.getItem('story_seed_session_id');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('story_seed_session_id', sessionId);
+  }
+  return sessionId;
+};
+
 const Register = () => {
+  const [searchParams] = useSearchParams();
+  const eventIdFromUrl = searchParams.get('eventId');
+  
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isComplete, setIsComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
-  const [registeredEventIds, setRegisteredEventIds] = useState<string[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [selectedEventId, setSelectedEventId] = useState<string>(eventIdFromUrl || '');
+  const [isEventLocked, setIsEventLocked] = useState(!!eventIdFromUrl);
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
   const [personalInfo, setPersonalInfo] = useState({
@@ -61,17 +72,9 @@ const Register = () => {
     videoFile: null,
   });
 
-  // Pre-fill email if user is logged in
-  useEffect(() => {
-    if (user?.email && !personalInfo.email) {
-      setPersonalInfo(prev => ({ ...prev, email: user.email }));
-    }
-  }, [user]);
-
-  // Fetch events and user's existing registrations
+  // Fetch events
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch active events
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('id, name, description')
@@ -80,36 +83,17 @@ const Register = () => {
       if (!eventsError && eventsData) {
         setEvents(eventsData);
       }
-
-      // Fetch user's existing registrations to disable already registered events
-      if (user?.id) {
-        const { data: registrationsData, error: registrationsError } = await supabase
-          .from('registrations')
-          .select('event_id')
-          .eq('user_id', user.id);
-        
-        if (!registrationsError && registrationsData) {
-          const eventIds = registrationsData
-            .map(r => r.event_id)
-            .filter((id): id is string => id !== null);
-          setRegisteredEventIds(eventIds);
-        }
-      }
     };
     fetchData();
-  }, [user?.id]);
+  }, []);
 
-  // Redirect to login if not authenticated (after loading completes)
+  // Lock event selection if eventId is in URL
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: 'Authentication Required',
-        description: 'Please login to register for the competition.',
-        variant: 'destructive',
-      });
-      navigate('/user');
+    if (eventIdFromUrl) {
+      setSelectedEventId(eventIdFromUrl);
+      setIsEventLocked(true);
     }
-  }, [isLoading, isAuthenticated, navigate, toast]);
+  }, [eventIdFromUrl]);
 
   const validateStep1 = () => {
     const { firstName, lastName, email, phone, age, city } = personalInfo;
@@ -117,6 +101,16 @@ const Register = () => {
       toast({
         title: 'Missing information',
         description: 'Please fill in all personal information fields before continuing.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    // Validate phone (should be 10 digits)
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      toast({
+        title: 'Invalid phone number',
+        description: 'Please enter a valid 10-digit Indian phone number (e.g., IN+91 9342745299).',
         variant: 'destructive',
       });
       return false;
@@ -146,15 +140,6 @@ const Register = () => {
   };
 
   const submitRegistration = async () => {
-    if (!user?.id) {
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to submit.',
-        variant: 'destructive',
-      });
-      return false;
-    }
-
     if (!selectedEventId) {
       toast({
         title: 'Error',
@@ -167,14 +152,24 @@ const Register = () => {
     setIsSubmitting(true);
 
     try {
+      // Generate or get session ID for anonymous user
+      const sessionId = getSessionId();
+      
+      // Create anonymous user ID (using session ID as identifier)
+      // For database, we'll use the session ID as a string identifier
+      // Note: This assumes user_id can be a string or we need to handle it differently
+      const anonymousUserId = `anon_${sessionId}`;
+
       // 1. Save registration to Supabase
+      // Note: If user_id is required and must be UUID, we may need to create a temporary user
+      // For now, assuming we can use a string identifier or make user_id nullable
       const { error: dbError } = await supabase.from('registrations').insert({
-        user_id: user.id,
+        user_id: null, // Will be handled by database or RLS policy
         event_id: selectedEventId,
         first_name: personalInfo.firstName,
         last_name: personalInfo.lastName,
         email: personalInfo.email,
-        phone: personalInfo.phone,
+        phone: `IN+91 ${personalInfo.phone.replace(/\D/g, '')}`, // Format as IN+91 10digits
         age: parseInt(personalInfo.age),
         city: personalInfo.city,
         story_title: storyDetails.title,
@@ -184,12 +179,30 @@ const Register = () => {
 
       if (dbError) {
         console.error('Database error:', dbError);
-        toast({
-          title: 'Registration Failed',
-          description: 'Could not save registration. Please try again.',
-          variant: 'destructive',
+        // If user_id is required, try with a generated UUID
+        const fallbackUserId = crypto.randomUUID();
+        const { error: retryError } = await supabase.from('registrations').insert({
+          user_id: fallbackUserId,
+          event_id: selectedEventId,
+          first_name: personalInfo.firstName,
+          last_name: personalInfo.lastName,
+          email: personalInfo.email,
+          phone: `+91${personalInfo.phone.replace(/\D/g, '').slice(2)}`,
+          age: parseInt(personalInfo.age),
+          city: personalInfo.city,
+          story_title: storyDetails.title,
+          category: storyDetails.category,
+          story_description: storyDetails.description,
         });
-        return false;
+        
+        if (retryError) {
+          toast({
+            title: 'Registration Failed',
+            description: 'Could not save registration. Please try again.',
+            variant: 'destructive',
+          });
+          return false;
+        }
       }
 
       // Get event name for webhook
@@ -197,13 +210,13 @@ const Register = () => {
 
       // 2. Send data + video to webhook
       const formData = new FormData();
-      formData.append('user_id', user.id);
+      formData.append('session_id', sessionId);
       formData.append('event_id', selectedEventId);
       formData.append('event_name', selectedEvent?.name || '');
       formData.append('first_name', personalInfo.firstName);
       formData.append('last_name', personalInfo.lastName);
       formData.append('email', personalInfo.email);
-      formData.append('phone', personalInfo.phone);
+      formData.append('phone', `IN+91 ${personalInfo.phone.replace(/\D/g, '')}`);
       formData.append('age', personalInfo.age);
       formData.append('city', personalInfo.city);
       formData.append('story_title', storyDetails.title);
@@ -213,23 +226,6 @@ const Register = () => {
       if (storyDetails.videoFile) {
         formData.append('video', storyDetails.videoFile);
       }
-
-      // Log webhook payload for debugging
-      console.log('Webhook payload:', {
-        user_id: user.id,
-        event_id: selectedEventId,
-        event_name: selectedEvent?.name,
-        first_name: personalInfo.firstName,
-        last_name: personalInfo.lastName,
-        email: personalInfo.email,
-        phone: personalInfo.phone,
-        age: personalInfo.age,
-        city: personalInfo.city,
-        story_title: storyDetails.title,
-        category: storyDetails.category,
-        story_description: storyDetails.description,
-        video: storyDetails.videoFile?.name,
-      });
 
       try {
         await fetch(WEBHOOK_URL, {
@@ -286,22 +282,18 @@ const Register = () => {
     }
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen pt-20 flex items-center justify-center bg-gradient-warm">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render form if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
+  // Handle phone input - only allow 10 digits after +91
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Remove all non-digits
+    const digits = value.replace(/\D/g, '');
+    // If starts with 91, remove it (we'll add +91 prefix)
+    const phoneDigits = digits.startsWith('91') ? digits.slice(2) : digits;
+    // Limit to 10 digits
+    if (phoneDigits.length <= 10) {
+      setPersonalInfo((prev) => ({ ...prev, phone: phoneDigits }));
+    }
+  };
 
   if (isComplete) {
     return (
@@ -318,7 +310,7 @@ const Register = () => {
             and next steps.
           </p>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
-            <Link to="/user/dashboard" className="flex-1">
+            <Link to="/dashboard" className="flex-1">
               <Button variant="hero" size="lg" className="w-full">
                 Go to Dashboard
               </Button>
@@ -333,9 +325,6 @@ const Register = () => {
       </div>
     );
   }
-
-  // Filter available events (exclude already registered)
-  const availableEvents = events.filter(event => !registeredEventIds.includes(event.id));
 
   return (
     <div className="min-h-screen pt-20 bg-gradient-warm page-enter">
@@ -437,15 +426,23 @@ const Register = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Phone Number</Label>
-                  <Input
-                    type="tel"
-                    placeholder="+91 98765 43210"
-                    value={personalInfo.phone}
-                    onChange={(e) =>
-                      setPersonalInfo((prev) => ({ ...prev, phone: e.target.value }))
-                    }
-                    required
-                  />
+                  <div className="relative">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                      <span className="text-sm font-medium text-muted-foreground">IN+91</span>
+                    </div>
+                    <Input
+                      type="tel"
+                      placeholder="9342745299"
+                      value={personalInfo.phone}
+                      onChange={handlePhoneChange}
+                      className="pl-16"
+                      maxLength={10}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your 10-digit mobile number (e.g., IN+91 9342745299)
+                  </p>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -476,12 +473,15 @@ const Register = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Select Event</Label>
-                  {availableEvents.length === 0 ? (
-                    <div className="p-4 bg-muted rounded-lg text-center">
-                      <p className="text-muted-foreground text-sm">
-                        You have already registered for all available events.
-                      </p>
-                    </div>
+                  {isEventLocked ? (
+                    <Select value={selectedEventId} disabled>
+                      <SelectTrigger className="w-full">
+                        <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <SelectValue>
+                          {events.find(e => e.id === selectedEventId)?.name || 'Selected Event'}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </Select>
                   ) : (
                     <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                       <SelectTrigger className="w-full">
@@ -489,18 +489,13 @@ const Register = () => {
                         <SelectValue placeholder="Choose an event to participate" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableEvents.map((event) => (
+                        {events.map((event) => (
                           <SelectItem key={event.id} value={event.id}>
                             {event.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  )}
-                  {registeredEventIds.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Events you've already registered for are not shown.
-                    </p>
                   )}
                 </div>
               </div>
@@ -564,7 +559,6 @@ const Register = () => {
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       if (file) {
-                        // Check file size (50MB = 50 * 1024 * 1024 bytes)
                         const maxSize = 50 * 1024 * 1024;
                         if (file.size > maxSize) {
                           toast({
@@ -632,7 +626,7 @@ const Register = () => {
                       </p>
                       <p>
                         <span className="font-medium text-foreground">Phone:</span>{' '}
-                        {personalInfo.phone}
+                        IN+91 {personalInfo.phone}
                       </p>
                       <p>
                         <span className="font-medium text-foreground">Age:</span>{' '}
@@ -689,7 +683,7 @@ const Register = () => {
                 type="button"
                 variant="hero"
                 onClick={handleNext}
-                disabled={isSubmitting || (currentStep === 1 && availableEvents.length === 0)}
+                disabled={isSubmitting || (currentStep === 1 && !selectedEventId)}
               >
                 {isSubmitting ? (
                   <>

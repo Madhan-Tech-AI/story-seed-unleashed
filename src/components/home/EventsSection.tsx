@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Trophy, Users, ArrowRight, Star, TrendingUp, Clock, Gift } from 'lucide-react';
+import { Calendar, Trophy, Users, ArrowRight, Star, TrendingUp, Clock, Gift, Vote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 
-const eventCategories = ['Upcoming', 'Live', 'All'];
+const eventCategories = ['Live', 'All', 'Upcoming'];
 
 interface Event {
   id: string;
@@ -21,7 +21,7 @@ interface Event {
 }
 
 export const EventsSection = () => {
-  const [activeCategory, setActiveCategory] = useState('Upcoming');
+  const [activeCategory, setActiveCategory] = useState('Live');
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -89,8 +89,8 @@ export const EventsSection = () => {
 
   const filteredEvents = events.filter((event) => {
     if (activeCategory === 'All') return true;
-    if (activeCategory === 'Upcoming') return event.status === 'upcoming';
     if (activeCategory === 'Live') return event.status === 'live';
+    if (activeCategory === 'Upcoming') return event.status === 'upcoming';
     return true;
   });
 
@@ -119,14 +119,33 @@ export const EventsSection = () => {
   return (
     <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-12 space-y-4">
-          <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground">
-            Upcoming <span className="text-gradient">Events</span>
-          </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            Don't miss out on these exciting storytelling competitions and events
-          </p>
+        {/* Header with Google Ad Placeholders */}
+        <div className="flex items-center justify-center gap-4 mb-12">
+          {/* Left Ad Placeholder */}
+          <div className="hidden lg:block w-48 h-48 bg-muted/50 border-2 border-dashed border-border rounded-lg flex items-center justify-center">
+            <div className="text-center text-muted-foreground text-xs">
+              <p>Google Ad</p>
+              <p className="text-[10px] mt-1">250x250</p>
+            </div>
+          </div>
+
+          {/* Header Content */}
+          <div className="text-center space-y-4 flex-1">
+            <h2 className="font-display text-4xl md:text-5xl font-bold text-foreground">
+              Upcoming <span className="text-gradient">Events</span>
+            </h2>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+              Don't miss out on these exciting storytelling competitions and events
+            </p>
+          </div>
+
+          {/* Right Ad Placeholder */}
+          <div className="hidden lg:block w-48 h-48 bg-muted/50 border-2 border-dashed border-border rounded-lg flex items-center justify-center">
+            <div className="text-center text-muted-foreground text-xs">
+              <p>Google Ad</p>
+              <p className="text-[10px] mt-1">250x250</p>
+            </div>
+          </div>
         </div>
 
         {/* Category Tabs */}
@@ -150,7 +169,7 @@ export const EventsSection = () => {
           ))}
         </div>
 
-        {/* Events Grid */}
+        {/* Events Grid with Glass-morphism */}
         {filteredEvents.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No events found in this category.</p>
@@ -160,73 +179,74 @@ export const EventsSection = () => {
             {filteredEvents.slice(0, 6).map((event, index) => (
               <div
                 key={event.id}
-                className="group bg-card rounded-2xl overflow-hidden shadow-sm card-hover glow-border animate-fade-in"
+                className="group relative animate-fade-in"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                {/* Image */}
-                <div className="relative aspect-[16/10] overflow-hidden">
-                  <img
-                    src={event.banner_image || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80'}
-                    alt={event.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 to-transparent" />
-                  
-                  {/* Status Badge */}
-                  <div className="absolute top-4 left-4">
-                    <span
-                      className={cn(
-                        'px-3 py-1 rounded-full text-xs font-semibold',
-                        event.status === 'live'
-                          ? 'bg-primary text-primary-foreground pulse-live'
-                          : event.status === 'upcoming'
-                          ? 'bg-secondary text-secondary-foreground'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {event.status === 'live' ? '🔴 Live Now' : event.status === 'upcoming' ? 'Coming Soon' : 'Ended'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-6 space-y-4">
-                  <h3 className="font-display text-xl font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {event.name}
-                  </h3>
-                  <p className="text-muted-foreground text-sm line-clamp-2">
-                    {event.description || 'Join this exciting storytelling competition!'}
-                  </p>
-
-                  {/* Meta */}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>{formatDateRange(event.start_date, event.end_date).split(' - ')[0]}</span>
+                {/* Glass-morphism Card */}
+                <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-3xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
+                  {/* Background Image with Overlay */}
+                  <div className="relative aspect-[16/10] overflow-hidden">
+                    <img
+                      src={event.banner_image || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80'}
+                      alt={event.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                    
+                    {/* Status Badge */}
+                    <div className="absolute top-4 left-4">
+                      <span
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm',
+                          event.status === 'live'
+                            ? 'bg-red-500/90 text-white pulse-live'
+                            : event.status === 'upcoming'
+                            ? 'bg-blue-500/90 text-white'
+                            : 'bg-gray-500/90 text-white'
+                        )}
+                      >
+                        {event.status === 'live' ? '🔴 Live Now' : event.status === 'upcoming' ? 'Coming Soon' : 'Ended'}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-border">
-                    <div className="flex items-center gap-4">
+                  {/* Content */}
+                  <div className="p-6 space-y-4">
+                    <h3 className="font-display text-xl font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                      {event.name}
+                    </h3>
+                    <p className="text-muted-foreground text-sm line-clamp-3">
+                      {event.description || 'Join this exciting storytelling competition!'}
+                    </p>
+
+                    {/* Meta */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <Gift className="w-4 h-4 text-secondary" />
-                        <span className="font-semibold text-foreground text-sm">
-                          Rewards for winners
-                        </span>
+                        <Calendar className="w-4 h-4" />
+                        <span>{formatDateRange(event.start_date, event.end_date).split(' - ')[0]}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-muted-foreground text-sm">{event.participantCount}+</span>
+                        <Users className="w-4 h-4" />
+                        <span>{event.participantCount}+ participants</span>
                       </div>
                     </div>
-                  </div>
 
-                  <Link to="/register">
-                    <Button variant="outline" className="w-full group/btn">
-                      Join Competition
-                      <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
-                    </Button>
-                  </Link>
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                      <Link to={`/register?eventId=${event.id}`} className="flex-1">
+                        <Button variant="hero" className="w-full group/btn">
+                          Register Now
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                        </Button>
+                      </Link>
+                      <Link to={`/voting/${event.id}`} className="flex-1">
+                        <Button variant="outline" className="w-full group/btn border-primary/30 hover:bg-primary/10">
+                          <Vote className="w-4 h-4 mr-2" />
+                          Vote
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

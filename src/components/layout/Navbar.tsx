@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, User } from 'lucide-react';
+import { Menu, X, LogOut, User, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -19,12 +20,14 @@ const navLinks = [
   { name: 'Events', path: '/events' },
   { name: 'Gallery', path: '/gallery' },
   { name: 'Leaderboard', path: '/leaderboard' },
+  { name: 'Dashboard', path: '/dashboard' },
   { name: 'Contact', path: '/contact' },
 ];
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, role } = useAuth();
@@ -99,57 +102,54 @@ export const Navbar = () => {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            {isAuthenticated && user ? (
-              <>
-                <Link to="/register">
-                  <Button variant="hero" size="sm">
-                    Register Now
-                  </Button>
-                </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-2 p-1 rounded-full hover:bg-muted transition-colors">
-                      <Avatar className="w-9 h-9">
-                        <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                        <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                          {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 bg-card">
-                    <div className="px-3 py-2">
-                      <p className="font-medium text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to={getDashboardPath()} className="cursor-pointer">
-                        <User className="w-4 h-4 mr-2" />
-                        Dashboard
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Logout
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <>
-                <Link to="/user">
-                  <Button variant="ghost" size="sm">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button variant="hero" size="sm">
-                    Register Now
-                  </Button>
-                </Link>
-              </>
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+              <Input
+                type="search"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery.trim()) {
+                    navigate(`/events?search=${encodeURIComponent(searchQuery.trim())}`);
+                    setSearchQuery('');
+                  }
+                }}
+                className="pl-10 w-64 h-9 bg-background/80 backdrop-blur-sm border-border/60 focus:bg-background"
+              />
+            </div>
+            {isAuthenticated && user && (role === 'admin' || role === 'judge') && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 p-1 rounded-full hover:bg-muted transition-colors">
+                    <Avatar className="w-9 h-9">
+                      <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                      <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                        {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-card">
+                  <div className="px-3 py-2">
+                    <p className="font-medium text-foreground">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to={getDashboardPath()} className="cursor-pointer">
+                      <User className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
 
@@ -185,7 +185,25 @@ export const Navbar = () => {
               </Link>
             ))}
             <div className="pt-4 border-t border-border space-y-2">
-              {isAuthenticated && user ? (
+              {/* Mobile Search Box */}
+              <div className="relative px-4">
+                <Search className="absolute left-7 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      navigate(`/events?search=${encodeURIComponent(searchQuery.trim())}`);
+                      setSearchQuery('');
+                      setIsOpen(false);
+                    }
+                  }}
+                  className="pl-10 w-full bg-background/80 backdrop-blur-sm border-border/60"
+                />
+              </div>
+              {isAuthenticated && user && (role === 'admin' || role === 'judge') && (
                 <>
                   <div className="flex items-center gap-3 px-4 py-2">
                     <Avatar className="w-10 h-10">
@@ -205,28 +223,10 @@ export const Navbar = () => {
                       Dashboard
                     </Button>
                   </Link>
-                  <Link to="/register" className="block">
-                    <Button variant="hero" className="w-full">
-                      Register Now
-                    </Button>
-                  </Link>
                   <Button variant="ghost" className="w-full text-destructive" onClick={handleLogout}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Logout
                   </Button>
-                </>
-              ) : (
-                <>
-                  <Link to="/user" className="block">
-                    <Button variant="outline" className="w-full">
-                      Login
-                    </Button>
-                  </Link>
-                  <Link to="/register" className="block">
-                    <Button variant="hero" className="w-full">
-                      Register Now
-                    </Button>
-                  </Link>
                 </>
               )}
             </div>

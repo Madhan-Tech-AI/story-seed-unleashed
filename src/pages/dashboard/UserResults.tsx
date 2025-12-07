@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trophy, Calendar, Award, Medal, Gift } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -19,7 +18,6 @@ interface EventResult {
 }
 
 const UserResults = () => {
-  const { user } = useAuth();
   const [results, setResults] = useState<EventResult[]>([]);
   const [loading, setLoading] = useState(true);
   const confettiTriggered = useRef(false);
@@ -59,29 +57,13 @@ const UserResults = () => {
   };
 
   const fetchResults = async () => {
-    if (!user) return;
-
     try {
-      // Get user's registrations
-      const { data: userRegs, error: regsError } = await supabase
-        .from('registrations')
-        .select('id, event_id, story_title')
-        .eq('user_id', user.id);
-
-      if (regsError) throw regsError;
-
-      const eventIds = userRegs?.map(r => r.event_id).filter(Boolean) || [];
-      if (eventIds.length === 0) {
-        setResults([]);
-        setLoading(false);
-        return;
-      }
-
-      // Get events with results
+      // For anonymous users, show all events with results
+      // Get all events with results announced
       const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('*')
-        .in('id', eventIds)
+        .eq('results_announced', true)
         .order('end_date', { ascending: false });
 
       if (eventsError) throw eventsError;
@@ -120,16 +102,6 @@ const UserResults = () => {
             second_runner_up = data;
           }
 
-          const userReg = userRegs?.find(r => r.event_id === event.id) || null;
-          let userPosition: EventResult['userPosition'] = null;
-
-          if (userReg) {
-            if (event.winner_id === userReg.id) userPosition = 'winner';
-            else if (event.runner_up_id === userReg.id) userPosition = 'runner_up';
-            else if (event.second_runner_up_id === userReg.id) userPosition = 'second_runner_up';
-            else userPosition = 'participant';
-          }
-
           return {
             id: event.id,
             name: event.name,
@@ -139,23 +111,13 @@ const UserResults = () => {
             winner,
             runner_up,
             second_runner_up,
-            userRegistration: userReg ? { id: userReg.id, story_title: userReg.story_title } : null,
-            userPosition,
+            userRegistration: null,
+            userPosition: null,
           };
         })
       );
 
       setResults(resultsWithWinners);
-
-      // Check if user is a winner in any announced event
-      const isWinner = resultsWithWinners.some(
-        event => event.results_announced && 
-        (event.userPosition === 'winner' || event.userPosition === 'runner_up' || event.userPosition === 'second_runner_up')
-      );
-
-      if (isWinner) {
-        triggerConfetti();
-      }
     } catch (error) {
       console.error('Error fetching results:', error);
     } finally {
@@ -174,7 +136,7 @@ const UserResults = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  }, []);
 
   const getPositionBadge = (position: EventResult['userPosition']) => {
     switch (position) {

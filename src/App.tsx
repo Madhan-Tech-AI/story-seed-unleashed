@@ -14,15 +14,14 @@ import Gallery from "./pages/Gallery";
 import Events from "./pages/Events";
 import Leaderboard from "./pages/Leaderboard";
 import Register from "./pages/Register";
+import Voting from "./pages/Voting";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
-// Auth pages
-import UserLogin from "./pages/auth/UserLogin";
-import UserSignup from "./pages/auth/UserSignup";
+// Auth pages (Admin and Judge only)
 import JudgeLogin from "./pages/auth/JudgeLogin";
 import AdminLogin from "./pages/auth/AdminLogin";
 
@@ -30,9 +29,6 @@ import AdminLogin from "./pages/auth/AdminLogin";
 import UserDashboard from "./pages/dashboard/UserDashboard";
 import UserEvents from "./pages/dashboard/UserEvents";
 import UserRegistrations from "./pages/dashboard/UserRegistrations";
-import UserProfile from "./pages/dashboard/UserProfile";
-import UserExplore from "./pages/dashboard/UserExplore";
-import UserEventDetails from "./pages/dashboard/UserEventDetails";
 import UserResults from "./pages/dashboard/UserResults";
 
 import JudgeDashboard from "./pages/dashboard/JudgeDashboard";
@@ -70,28 +66,23 @@ const App = () => (
               <Route path="/gallery" element={<Gallery />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/voting/:eventId?" element={<Voting />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contact" element={<Contact />} />
             </Route>
 
-            {/* Auth routes */}
-            <Route path="/user" element={<UserLogin />} />
-            <Route path="/signup" element={<UserSignup />} />
+            {/* Auth routes (Admin and Judge only) */}
             <Route path="/judge" element={<JudgeLogin />} />
             <Route path="/admin" element={<AdminLogin />} />
 
-            {/* User dashboard */}
-            <Route path="/user/dashboard" element={<DashboardLayout requiredRole="user" />}>
+            {/* User dashboard - accessible without login */}
+            <Route path="/dashboard" element={<MainLayout />}>
               <Route index element={<UserDashboard />} />
-              <Route path="explore" element={<UserExplore />} />
               <Route path="events" element={<UserEvents />} />
-              <Route path="events/:id" element={<UserEventDetails />} />
               <Route path="registrations" element={<UserRegistrations />} />
               <Route path="results" element={<UserResults />} />
-              <Route path="profile" element={<UserProfile />} />
-              <Route path="register" element={<Register />} />
             </Route>
 
             {/* Judge dashboard */}
