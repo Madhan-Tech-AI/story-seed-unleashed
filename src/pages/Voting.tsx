@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ThumbsUp, Eye, X, Share2, Play, Loader2, User, Phone, Search, ArrowLeft } from 'lucide-react';
+import { ThumbsUp, Eye, X, Share2, Play, Loader2, User, Phone, Search, ArrowLeft, Copy, Check, MessageCircle, Instagram, Facebook } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +49,8 @@ const Voting = () => {
   const [voting, setVoting] = useState(false);
   const [voteRecords, setVoteRecords] = useState<VoteRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     const fetchContestants = async () => {
@@ -254,43 +257,58 @@ const Voting = () => {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
     if (!selectedContestant || !eventId) return;
-
-    const shareUrl = `${window.location.origin}/voting/${eventId}?contestant=${selectedContestant.id}`;
-    
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Vote for ${selectedContestant.first_name} ${selectedContestant.last_name}`,
-          text: `Check out this amazing story: ${selectedContestant.story_title}`,
-          url: shareUrl,
-        });
-        toast({
-          title: 'Shared!',
-          description: 'Link has been shared successfully.',
-        });
-      } catch (error) {
-        // User cancelled or error occurred
-        copyToClipboard(shareUrl);
-      }
-    } else {
-      copyToClipboard(shareUrl);
-    }
+    setIsShareModalOpen(true);
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
+  const getShareUrl = () => {
+    if (!selectedContestant || !eventId) return '';
+    return `${window.location.origin}/voting/${eventId}?contestant=${selectedContestant.id}`;
+  };
+
+  const getShareText = () => {
+    if (!selectedContestant) return '';
+    return `Check out this amazing story: ${selectedContestant.story_title} by ${selectedContestant.first_name} ${selectedContestant.last_name}. Vote now!`;
+  };
+
+  const copyToClipboard = () => {
+    const shareUrl = getShareUrl();
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopiedLink(true);
       toast({
         title: 'Link Copied!',
         description: 'Voting link has been copied to clipboard.',
       });
+      setTimeout(() => setCopiedLink(false), 2000);
     }).catch(() => {
       toast({
         title: 'Copy Failed',
         description: 'Could not copy link. Please try again.',
         variant: 'destructive',
       });
+    });
+  };
+
+  const shareOnWhatsApp = () => {
+    const shareUrl = getShareUrl();
+    const shareText = getShareText();
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const shareOnFacebook = () => {
+    const shareUrl = getShareUrl();
+    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    window.open(facebookUrl, '_blank', 'width=600,height=400');
+  };
+
+  const shareOnInstagram = () => {
+    // Instagram doesn't support direct URL sharing, so we'll copy the link and show a message
+    copyToClipboard();
+    toast({
+      title: 'Link Copied!',
+      description: 'Instagram doesn\'t support direct sharing. The link has been copied to your clipboard. You can paste it in your Instagram story or post.',
     });
   };
 
@@ -664,6 +682,92 @@ const Voting = () => {
           </div>
         </div>
       )}
+
+      {/* Share Modal */}
+      <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Share This Story</DialogTitle>
+            <DialogDescription>
+              Share this amazing story with your friends and family
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Share Link Input */}
+            <div className="space-y-2">
+              <Label>Share Link</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={getShareUrl()}
+                  readOnly
+                  className="flex-1 font-mono text-sm"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={copyToClipboard}
+                  className="shrink-0"
+                >
+                  {copiedLink ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Social Share Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="outline"
+                onClick={copyToClipboard}
+                className="flex items-center justify-center gap-2 h-12"
+              >
+                {copiedLink ? (
+                  <>
+                    <Check className="w-5 h-5 text-green-500" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-5 h-5" />
+                    Copy Link
+                  </>
+                )}
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={shareOnWhatsApp}
+                className="flex items-center justify-center gap-2 h-12 bg-green-50 hover:bg-green-100 dark:bg-green-950 dark:hover:bg-green-900 border-green-200 dark:border-green-800"
+              >
+                <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                WhatsApp
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={shareOnFacebook}
+                className="flex items-center justify-center gap-2 h-12 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950 dark:hover:bg-blue-900 border-blue-200 dark:border-blue-800"
+              >
+                <Facebook className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                Facebook
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={shareOnInstagram}
+                className="flex items-center justify-center gap-2 h-12 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950 dark:hover:bg-pink-900 border-pink-200 dark:border-pink-800"
+              >
+                <Instagram className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+                Instagram
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
