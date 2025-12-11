@@ -352,19 +352,19 @@ const Leaderboard = () => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:20px_20px]"></div>
       </div>
       {/* Left Trophy - Bottom Aligned */}
-      <div className="absolute left-[12%] md:left-[28%] bottom-5 z-20">
+      <div className="absolute left-[8%] sm:left-[15%] md:left-[20%] lg:left-[25%] xl:left-[28%] bottom-5 z-20">
         <img
           src="/assets/trophy-icon.png"
           alt="Trophy Left"
-          className="w-20 h-20 md:w-40 md:h-40 object-contain object-bottom drop-shadow-lg"
+          className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-36 lg:h-36 xl:w-40 xl:h-40 object-contain object-bottom drop-shadow-lg"
         />
       </div>
       {/* Right Trophy - Bottom Aligned */}
-      <div className="absolute right-[12%] md:right-[28%] bottom-5 z-20">
+      <div className="absolute right-[8%] sm:right-[15%] md:right-[20%] lg:right-[25%] xl:right-[28%] bottom-5 z-20">
         <img
           src="/assets/trophy-icon.png"
           alt="Trophy Right"
-          className="w-20 h-20 md:w-40 md:h-40 object-contain object-bottom drop-shadow-lg"
+          className="w-16 h-16 sm:w-24 sm:h-24 md:w-32 md:h-32 lg:w-36 lg:h-36 xl:w-40 xl:h-40 object-contain object-bottom drop-shadow-lg"
         />
       </div>
       <div className="container mx-auto px-2 md:px-4 text-center relative z-10">
