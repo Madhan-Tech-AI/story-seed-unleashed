@@ -120,7 +120,7 @@ const AdminCreate = () => {
           const fileName = `qr-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
           const { error: uploadError } = await supabase.storage
-            .from('event-banners')
+            .from('payment-qr-codes')
             .upload(fileName, qrFile);
 
           if (uploadError) {
@@ -132,7 +132,7 @@ const AdminCreate = () => {
             });
           } else {
             const { data: urlData } = supabase.storage
-              .from('event-banners')
+              .from('payment-qr-codes')
               .getPublicUrl(fileName);
 
             qrUrl = urlData.publicUrl;
