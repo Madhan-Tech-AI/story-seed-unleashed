@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Play, Mic, Sparkles, Shield, Heart, Award, Globe, Users, Target, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { CircularTestimonials } from '@/components/ui/circular-testimonials';
 
 const About = () => {
   const [activeTab, setActiveTab] = useState<'mission' | 'vision' | 'values'>('mission');
@@ -51,19 +52,54 @@ const About = () => {
 
   const team = [
     {
-      name: 'Story Seed',
+      name: 'Sarah Johnson',
       role: 'Founder & CEO',
       image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop',
     },
     {
-      name: 'Story Seed',
+      name: 'Michael Chen',
       role: 'Creative Director',
       image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
     },
     {
-      name: 'Story Seed',
+      name: 'Jessica Williams',
       role: 'Head of Content',
       image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'David Wilson',
+      role: 'Lead Developer',
+      image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'Emily Brown',
+      role: 'UX Designer',
+      image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'James Taylor',
+      role: 'Marketing Manager',
+      image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'Linda Martinez',
+      role: 'Content Writer',
+      image: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'Robert Anderson',
+      role: 'Community Manager',
+      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'Patricia Thomas',
+      role: 'Product Owner',
+      image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop',
+    },
+    {
+      name: 'Christopher Garcia',
+      role: 'Education Specialist',
+      image: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=400&h=400&fit=crop',
     },
   ];
 
@@ -108,10 +144,10 @@ const About = () => {
                   We help on creating storytelling platform
                 </h2>
                 <p className="text-muted-foreground leading-relaxed text-sm sm:text-base">
-                Story Seeds is a one-of-a-kind creative storytelling platform built to nurture the imagination, confidence, and communication skills of young children. We believe every child is born with a spark — a spark of curiosity, creativity, and the desire to express what they see, feel, and dream. Our goal is to give that spark a stage.
-                <br />
-                <br />
-                At Story Seeds, we see storytelling as more than just a fun activity — it is a powerful developmental tool that shapes a child’s thinking, confidence, and emotional growth. Every child carries within them an unexplored world of ideas, feelings, and imaginations waiting to be discovered and shared. Yet, in the rush of everyday life, children rarely get the opportunity or encouragement to express these inner worlds.
+                  Story Seeds is a one-of-a-kind creative storytelling platform built to nurture the imagination, confidence, and communication skills of young children. We believe every child is born with a spark — a spark of curiosity, creativity, and the desire to express what they see, feel, and dream. Our goal is to give that spark a stage.
+                  <br />
+                  <br />
+                  At Story Seeds, we see storytelling as more than just a fun activity — it is a powerful developmental tool that shapes a child’s thinking, confidence, and emotional growth. Every child carries within them an unexplored world of ideas, feelings, and imaginations waiting to be discovered and shared. Yet, in the rush of everyday life, children rarely get the opportunity or encouragement to express these inner worlds.
                 </p>
               </div>
             </div>
@@ -280,27 +316,30 @@ const About = () => {
                 Our team consists only of the best talents
               </p>
             </div>
-            <div className="grid sm:grid-cols-3 gap-6 sm:gap-8 justify-items-center">
-              {team.map((member, index) => (
-                <div
-                  key={index}
-                  className="text-center group"
-                >
-                  <div className="relative mb-4 sm:mb-6 mx-auto w-32 h-32 sm:w-40 sm:h-40">
-                    <div className="relative w-full h-full rounded-full overflow-hidden shadow-xl border-4 border-primary-foreground/20 group-hover:border-primary-foreground/40 transition-all">
-                      <img
-                        src={member.image}
-                        alt={member.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    </div>
-                  </div>
-                  <h3 className="font-display text-lg sm:text-xl font-bold text-primary-foreground mb-1">
-                    {member.name}
-                  </h3>
-                  <p className="text-sm sm:text-base text-primary-foreground/80">{member.role}</p>
-                </div>
-              ))}
+
+            <div className="flex justify-center items-center">
+              <CircularTestimonials
+                testimonials={team.map(member => ({
+                  quote: "Dedicated to nurturing creativity and storytelling in every child.",
+                  name: member.name,
+                  designation: member.role,
+                  src: member.image
+                }))}
+                autoplay={true}
+                colors={{
+                  name: "#ffffff",
+                  designation: "#e2e8f0",
+                  testimony: "#f8fafc",
+                  arrowBackground: "#ffffff",
+                  arrowForeground: "#ef4444",
+                  arrowHoverBackground: "#f1f5f9",
+                }}
+                fontSizes={{
+                  name: "1.5rem",
+                  designation: "1rem",
+                  quote: "1.125rem",
+                }}
+              />
             </div>
           </div>
         </div>
