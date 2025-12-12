@@ -156,7 +156,9 @@ export type Database = {
           end_date: string | null
           id: string
           is_active: boolean | null
+          is_payment_enabled: boolean | null
           name: string
+          qr_code_url: string | null
           registration_deadline: string | null
           registration_open: boolean | null
           results_announced: boolean | null
@@ -173,7 +175,9 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean | null
+          is_payment_enabled?: boolean | null
           name: string
+          qr_code_url?: string | null
           registration_deadline?: string | null
           registration_open?: boolean | null
           results_announced?: boolean | null
@@ -190,7 +194,9 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean | null
+          is_payment_enabled?: boolean | null
           name?: string
+          qr_code_url?: string | null
           registration_deadline?: string | null
           registration_open?: boolean | null
           results_announced?: boolean | null

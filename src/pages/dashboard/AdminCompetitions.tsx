@@ -139,20 +139,19 @@ const AdminCompetitions = () => {
       if (qrCodeFile) {
         setUploadingQr(true);
         const fileExt = qrCodeFile.name.split('.').pop();
-        const fileName = `${editEvent.id}-${Date.now()}.${fileExt}`;
-        const filePath = `qr-codes/${fileName}`;
+        const fileName = `qr-${editEvent.id}-${Date.now()}.${fileExt}`;
 
         // Upload to Supabase storage
         const { error: uploadError } = await supabase.storage
-          .from('event-assets')
-          .upload(filePath, qrCodeFile, { upsert: true });
+          .from('payment-qr-codes')
+          .upload(fileName, qrCodeFile, { upsert: true });
 
         if (uploadError) throw uploadError;
 
         // Get public URL
         const { data: urlData } = supabase.storage
-          .from('event-assets')
-          .getPublicUrl(filePath);
+          .from('payment-qr-codes')
+          .getPublicUrl(fileName);
 
         qrCodeUrl = urlData.publicUrl;
         setUploadingQr(false);
