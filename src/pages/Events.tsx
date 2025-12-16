@@ -297,12 +297,15 @@ const Events = () => {
                             Registration Closed
                           </Button>
                         )}
-                        <Link to={`/voting/${event.id}`} className="flex-1">
-                          <Button variant="outline" className="w-full group/btn border-primary/30 hover:bg-primary/10">
-                            <Vote className="w-4 h-4 mr-2" />
-                            Vote
-                          </Button>
-                        </Link>
+                        {/* Only show Vote button for school events */}
+                        {event.event_type === 'school' && (
+                          <Link to={`/voting/${event.id}`} className="flex-1">
+                            <Button variant="outline" className="w-full group/btn border-primary/30 hover:bg-primary/10">
+                              <Vote className="w-4 h-4 mr-2" />
+                              Vote
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>
