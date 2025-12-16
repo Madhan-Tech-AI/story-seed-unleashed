@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Image,
   X,
+  GraduationCap,
 } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
@@ -51,7 +52,8 @@ const buildUserNavItems = (t: (key: string) => string): NavItem[] => [
 
 const judgeNavItems: NavItem[] = [
   { name: 'Dashboard', path: '/judge/dashboard', icon: LayoutDashboard },
-  { name: 'Submissions', path: '/judge/dashboard/submissions', icon: FileText },
+  { name: 'School Submissions', path: '/judge/dashboard/submissions', icon: FileText },
+  { name: 'College Submissions', path: '/judge/dashboard/college-submissions', icon: GraduationCap },
   { name: 'Entries', path: '/judge/dashboard/entries', icon: Eye },
   { name: 'My Profile', path: '/judge/dashboard/profile', icon: User },
 ];

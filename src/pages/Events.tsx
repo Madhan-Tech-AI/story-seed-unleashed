@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Calendar, Trophy, Users, ArrowRight, Star, Gift, Vote } from 'lucide-react';
+import { Calendar, Trophy, Users, ArrowRight, Star, Gift, Vote, School, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ interface Event {
   registration_open: boolean;
   participantCount: number;
   status: 'live' | 'upcoming' | 'ended';
+  event_type: 'school' | 'college' | 'both';
 }
 
 const eventCategories = ['Live', 'All', 'Upcoming'];
@@ -28,6 +29,7 @@ const Events = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('Live');
+  const [eventTypeFilter, setEventTypeFilter] = useState<'all' | 'school' | 'college'>('all');
 
   const fetchEvents = async () => {
     try {
@@ -68,6 +70,7 @@ const Events = () => {
             registration_open: event.registration_open !== false,
             participantCount: count || 0,
             status,
+            event_type: (event as any).event_type || 'both',
           };
         })
       );
@@ -113,6 +116,13 @@ const Events = () => {
       if (!matchesSearch) return false;
     }
     
+    // Apply event type filter
+    if (eventTypeFilter !== 'all') {
+      if (event.event_type !== eventTypeFilter && event.event_type !== 'both') {
+        return false;
+      }
+    }
+    
     // Apply category filter
     if (activeCategory === 'All') return true;
     if (activeCategory === 'Live') return event.status === 'live';
@@ -140,6 +150,47 @@ const Events = () => {
       {/* Events Grid */}
       <section className="py-12 sm:py-20 bg-background">
         <div className="container mx-auto px-4">
+          {/* Event Type Toggle */}
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex p-1 bg-muted rounded-full">
+              <button
+                onClick={() => setEventTypeFilter('all')}
+                className={cn(
+                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-300',
+                  eventTypeFilter === 'all'
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                All Events
+              </button>
+              <button
+                onClick={() => setEventTypeFilter('school')}
+                className={cn(
+                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2',
+                  eventTypeFilter === 'school'
+                    ? 'bg-blue-500 text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <School className="w-4 h-4" />
+                School
+              </button>
+              <button
+                onClick={() => setEventTypeFilter('college')}
+                className={cn(
+                  'px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2',
+                  eventTypeFilter === 'college'
+                    ? 'bg-purple-500 text-white shadow-md'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <GraduationCap className="w-4 h-4" />
+                College
+              </button>
+            </div>
+          </div>
+
           {/* Category Filters */}
           <div className="flex justify-center gap-2 mb-12">
             {eventCategories.map((category) => (

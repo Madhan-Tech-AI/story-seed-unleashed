@@ -154,6 +154,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           end_date: string | null
+          event_type: string | null
           id: string
           is_active: boolean | null
           is_payment_enabled: boolean | null
@@ -173,6 +174,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           end_date?: string | null
+          event_type?: string | null
           id?: string
           is_active?: boolean | null
           is_payment_enabled?: boolean | null
@@ -192,6 +194,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           end_date?: string | null
+          event_type?: string | null
           id?: string
           is_active?: boolean | null
           is_payment_enabled?: boolean | null
@@ -401,6 +404,7 @@ export type Database = {
           category: string
           city: string
           class_level: string | null
+          cover_page_url: string | null
           created_at: string
           email: string
           event_id: string | null
@@ -409,6 +413,7 @@ export type Database = {
           last_name: string
           overall_views: number
           overall_votes: number
+          pdf_url: string | null
           phone: string
           story_description: string
           story_title: string
@@ -421,6 +426,7 @@ export type Database = {
           category: string
           city: string
           class_level?: string | null
+          cover_page_url?: string | null
           created_at?: string
           email: string
           event_id?: string | null
@@ -429,6 +435,7 @@ export type Database = {
           last_name: string
           overall_views?: number
           overall_votes?: number
+          pdf_url?: string | null
           phone: string
           story_description: string
           story_title: string
@@ -441,6 +448,7 @@ export type Database = {
           category?: string
           city?: string
           class_level?: string | null
+          cover_page_url?: string | null
           created_at?: string
           email?: string
           event_id?: string | null
@@ -449,6 +457,7 @@ export type Database = {
           last_name?: string
           overall_views?: number
           overall_votes?: number
+          pdf_url?: string | null
           phone?: string
           story_description?: string
           story_title?: string
