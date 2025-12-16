@@ -401,7 +401,7 @@ const Register = () => {
         return false;
       }
 
-      saveUserSession(phoneDigits, personalInfo.firstName, authenticatedUserId);
+      saveUserSession(personalInfo.email, personalInfo.firstName, authenticatedUserId);
       const selectedEvent = events.find(e => e.id === selectedEventId);
 
       // Webhook

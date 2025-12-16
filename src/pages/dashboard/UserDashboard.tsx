@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Trophy, FileText, ArrowRight, Loader2, Eye, TrendingUp, Phone, LogOut } from 'lucide-react';
+import { Calendar, Trophy, FileText, ArrowRight, Loader2, Eye, TrendingUp, Mail, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { StatsCard } from '@/components/dashboard/StatsCard';
@@ -41,16 +41,17 @@ const UserDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRegistrationsModalOpen, setIsRegistrationsModalOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
-  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const fetchUserData = async (phoneDigits: string) => {
+    const fetchUserData = async (email: string) => {
       try {
-        // Fetch all registrations and filter by phone (last 10 digits match)
+        // Fetch all registrations and filter by email
         const { data: allRegistrations, error: regError } = await supabase
           .from('registrations')
-          .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, phone, first_name, events:events!registrations_event_id_fkey(name)')
+          .select('id, story_title, category, created_at, event_id, overall_votes, overall_views, email, first_name, events:events!registrations_event_id_fkey(name)')
+          .eq('email', email)
           .order('created_at', { ascending: false });
 
         if (regError) {
@@ -59,11 +60,7 @@ const UserDashboard = () => {
           return;
         }
 
-        // Filter registrations where phone ends with the stored 10 digits
-        const registrations = (allRegistrations || []).filter(r => {
-          const regPhoneDigits = r.phone.replace(/\D/g, '').slice(-10);
-          return regPhoneDigits === phoneDigits;
-        });
+        const registrations = allRegistrations || [];
 
         // Get user name from first registration
         if (registrations.length > 0 && registrations[0].first_name) {
@@ -97,51 +94,21 @@ const UserDashboard = () => {
     };
 
     const checkAuthAndFetchData = async () => {
-      // First, check Supabase auth session for authenticated user
-      const { data: { session } } = await supabase.auth.getSession();
+      // Check for stored email from registration
+      const storedEmail = localStorage.getItem('story_seed_user_email');
       
-      if (session?.user && session.user.phone) {
-        // User is authenticated via Supabase - use their phone from session
-        const phoneDigits = session.user.phone.replace('+91', '').replace(/\D/g, '').slice(-10);
-        setUserPhone(phoneDigits);
+      if (storedEmail) {
+        setUserEmail(storedEmail);
         setIsLoggedIn(true);
-        
-        // Update localStorage with current session phone
-        localStorage.setItem('story_seed_user_phone', phoneDigits);
-        localStorage.setItem('story_seed_user_id', session.user.id);
-        
-        await fetchUserData(phoneDigits);
+        await fetchUserData(storedEmail);
       } else {
-        // No Supabase session - user needs to verify phone first
+        // No stored email - user needs to register first
         setIsLoggedIn(false);
         setIsLoading(false);
-        // Clear stale localStorage data
-        localStorage.removeItem('story_seed_user_phone');
-        localStorage.removeItem('story_seed_user_name');
-        localStorage.removeItem('story_seed_user_id');
       }
     };
 
     checkAuthAndFetchData();
-
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user && session.user.phone) {
-        const phoneDigits = session.user.phone.replace('+91', '').replace(/\D/g, '').slice(-10);
-        setUserPhone(phoneDigits);
-        setIsLoggedIn(true);
-        localStorage.setItem('story_seed_user_phone', phoneDigits);
-        localStorage.setItem('story_seed_user_id', session.user.id);
-        await fetchUserData(phoneDigits);
-      } else if (event === 'SIGNED_OUT') {
-        setIsLoggedIn(false);
-        setUserPhone(null);
-        setUserName(null);
-        localStorage.removeItem('story_seed_user_phone');
-        localStorage.removeItem('story_seed_user_name');
-        localStorage.removeItem('story_seed_user_id');
-      }
-    });
 
     // Real-time subscription for registrations
     const registrationsChannel = supabase
@@ -150,32 +117,32 @@ const UserDashboard = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'registrations' },
         async () => {
-          const currentPhone = localStorage.getItem('story_seed_user_phone');
-          if (currentPhone) {
-            await fetchUserData(currentPhone);
+          const currentEmail = localStorage.getItem('story_seed_user_email');
+          if (currentEmail) {
+            await fetchUserData(currentEmail);
           }
         }
       )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
       supabase.removeChannel(registrationsChannel);
     };
   }, []);
 
   const handleLogout = async () => {
-    // Sign out from Supabase auth
-    await supabase.auth.signOut();
-    
     // Clear localStorage
-    localStorage.removeItem('story_seed_user_phone');
+    localStorage.removeItem('story_seed_user_email');
     localStorage.removeItem('story_seed_user_name');
     localStorage.removeItem('story_seed_user_id');
     localStorage.removeItem('story_seed_session_id');
     
-    toast({ title: 'Logged Out', description: 'You have been logged out successfully.' });
-    navigate('/user');
+    setIsLoggedIn(false);
+    setUserEmail(null);
+    setUserName(null);
+    
+    toast({ title: 'Logged Out', description: 'You have been logged out successfully. Please register again to access dashboard.' });
+    navigate('/register');
   };
 
   if (isLoading) {
@@ -191,19 +158,16 @@ const UserDashboard = () => {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md mx-auto p-8 bg-card rounded-3xl border border-border shadow-xl">
-          <Phone className="w-16 h-16 mx-auto mb-6 text-primary" />
-          <h2 className="text-2xl font-bold text-foreground mb-3">Login Required</h2>
+          <Mail className="w-16 h-16 mx-auto mb-6 text-primary" />
+          <h2 className="text-2xl font-bold text-foreground mb-3">Registration Required</h2>
           <p className="text-muted-foreground mb-6">
-            Please login with your phone number to access your dashboard and view your submissions.
+            Please register for an event to access your dashboard and view your submissions.
           </p>
-          <Link to="/user">
+          <Link to="/register">
             <Button className="w-full" size="lg">
-              Login with Phone
+              Register for an Event
             </Button>
           </Link>
-          <p className="text-sm text-muted-foreground mt-4">
-            Don't have an account? <Link to="/register" className="text-primary hover:underline">Register for an event</Link>
-          </p>
         </div>
       </div>
     );

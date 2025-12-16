@@ -35,23 +35,26 @@ interface JudgeEntry {
 interface Event {
   id: string;
   name: string;
+  event_type?: 'school' | 'college' | 'both';
 }
 const Leaderboard = () => {
   const [communityEntries, setCommunityEntries] = useState<CommunityEntry[]>([]);
   const [judgeEntries, setJudgeEntries] = useState<JudgeEntry[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
+  const [selectedEventType, setSelectedEventType] = useState<'school' | 'college' | 'both'>('both');
   const [loading, setLoading] = useState(true);
 
   const fetchEvents = async () => {
     const {
       data
-    } = await supabase.from('events').select('id, name').eq('is_active', true);
+    } = await supabase.from('events').select('id, name, event_type').eq('is_active', true);
     if (data && data.length > 0) {
-      setEvents(data);
+      setEvents(data.map(e => ({ ...e, event_type: (e as any).event_type || 'both' })));
       // Auto-select first event if none selected
       if (!selectedEvent) {
         setSelectedEvent(data[0].id);
+        setSelectedEventType((data[0] as any).event_type || 'both');
       }
     }
   };
@@ -389,7 +392,11 @@ const Leaderboard = () => {
       <div className="flex justify-center mb-6">
         <div className="flex items-center gap-2 bg-card rounded-full px-4 py-2 border border-border shadow-sm">
           <Calendar className="w-4 h-4 text-muted-foreground" />
-          <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+          <Select value={selectedEvent} onValueChange={(value) => {
+            setSelectedEvent(value);
+            const event = events.find(e => e.id === value);
+            setSelectedEventType(event?.event_type || 'both');
+          }}>
             <SelectTrigger className="border-0 bg-transparent w-[160px] focus:ring-0">
               <SelectValue placeholder="Select Event" />
             </SelectTrigger>
@@ -402,32 +409,39 @@ const Leaderboard = () => {
 
       {loading ? <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div> : <Tabs defaultValue="community" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 p-1">
-          <TabsTrigger
-            value="community"
-            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
-          >
-            <Users className="w-4 h-4" />
-            <span className="hidden sm:inline">Community</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="judge"
-            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
-          >
-            <Gavel className="w-4 h-4" />
-            <span className="hidden sm:inline">Judge</span>
-          </TabsTrigger>
-        </TabsList>
+      </div> : selectedEventType === 'school' ? (
+        <Tabs defaultValue="community" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 p-1">
+            <TabsTrigger
+              value="community"
+              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Community</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="judge"
+              className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all"
+            >
+              <Gavel className="w-4 h-4" />
+              <span className="hidden sm:inline">Judge</span>
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="community">
-          {renderLeaderboard(communityTopThree, communityRestTop6, communityTop6, 'community', 'Community Leaderboard', 'Most Voted Stories', <Users className="w-5 h-5 text-white" />)}
-        </TabsContent>
+          <TabsContent value="community">
+            {renderLeaderboard(communityTopThree, communityRestTop6, communityTop6, 'community', 'Community Leaderboard', 'Most Voted Stories', <Users className="w-5 h-5 text-white" />)}
+          </TabsContent>
 
-        <TabsContent value="judge">
+          <TabsContent value="judge">
+            {renderLeaderboard(judgeTopThree, judgeRestTop6, judgeTop6, 'judge', 'Judge Leaderboard', 'Expert Evaluations', <Gavel className="w-5 h-5 text-white" />)}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        // For college and both events - only show Judge Leaderboard
+        <div className="w-full">
           {renderLeaderboard(judgeTopThree, judgeRestTop6, judgeTop6, 'judge', 'Judge Leaderboard', 'Expert Evaluations', <Gavel className="w-5 h-5 text-white" />)}
-        </TabsContent>
-      </Tabs>}
+        </div>
+      )}
     </div>
   </div>;
 };
