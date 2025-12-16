@@ -334,11 +334,24 @@ const Register = () => {
       toast({ title: 'Missing information', description: 'Please fill in all personal information fields.', variant: 'destructive' });
       return false;
     }
-    if (role === 'school' && !schoolName) {
-      toast({ title: 'Missing Information', description: 'Please enter your school name.', variant: 'destructive' });
-      return false;
+    
+    // Validate age range for school events (5-18)
+    const ageNum = parseInt(age);
+    if (role === 'school') {
+      if (isNaN(ageNum) || ageNum < 5 || ageNum > 18) {
+        toast({ title: 'Invalid Age', description: 'Age must be between 5 and 18 years for school events.', variant: 'destructive' });
+        return false;
+      }
+      if (!schoolName) {
+        toast({ title: 'Missing Information', description: 'Please enter your school name.', variant: 'destructive' });
+        return false;
+      }
     }
     if (role === 'college') {
+      if (isNaN(ageNum) || ageNum < 1) {
+        toast({ title: 'Invalid Age', description: 'Please enter a valid age.', variant: 'destructive' });
+        return false;
+      }
       if (!collegeName) {
         toast({ title: 'Missing Information', description: 'Please enter your college/institution name.', variant: 'destructive' });
         return false;
