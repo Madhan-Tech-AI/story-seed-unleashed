@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2, Calendar, Phone, ShieldCheck, CreditCard, Landmark, Scan, Wallet } from 'lucide-react';
+import { Check, User, FileText, ArrowRight, ArrowLeft, Loader2, Calendar, Mail, ShieldCheck, CreditCard, Landmark, Scan, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -50,9 +49,8 @@ const stepsFree = [
 const WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload';
 
 // Store user session based on Supabase auth user
-const saveUserSession = (phone: string, firstName: string, userId: string): void => {
-  const phoneDigits = phone.replace(/\D/g, '');
-  localStorage.setItem('story_seed_user_phone', phoneDigits);
+const saveUserSession = (email: string, firstName: string, userId: string): void => {
+  localStorage.setItem('story_seed_user_email', email);
   localStorage.setItem('story_seed_user_name', firstName);
   localStorage.setItem('story_seed_user_id', userId);
   let sessionId = localStorage.getItem('story_seed_session_id');
@@ -113,12 +111,10 @@ const Register = () => {
     }
   }, [role]);
 
-  // Phone verification states
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpStep, setOtpStep] = useState<'phone' | 'otp' | 'verified'>('phone');
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  // Email verification states
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [emailStep, setEmailStep] = useState<'email' | 'sent' | 'verified'>('email');
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
 
   const [personalInfo, setPersonalInfo] = useState({
@@ -208,15 +204,14 @@ const Register = () => {
     }
   }, [role, selectedEventId, events]);
 
-  // Check for existing session on mount
+  // Check for existing session on mount and handle magic link callback
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && session.user.phone) {
-        const currentPhone = session.user.phone.replace('+91', '').replace(/\D/g, '').slice(-10);
+      if (session?.user && session.user.email) {
         setAuthenticatedUserId(session.user.id);
-        setPhoneNumber(currentPhone);
-        setOtpStep('verified');
+        setVerificationEmail(session.user.email);
+        setEmailStep('verified');
 
         const savedRole = localStorage.getItem('story_seed_user_role');
         if (savedRole) {
@@ -225,15 +220,15 @@ const Register = () => {
           setCurrentStep(2);
         }
 
-        setPersonalInfo(prev => ({ ...prev, phone: currentPhone }));
-        localStorage.setItem('story_seed_user_phone', currentPhone);
+        setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
+        localStorage.setItem('story_seed_user_email', session.user.email || '');
         localStorage.setItem('story_seed_user_id', session.user.id);
       } else {
-        setPhoneNumber('');
-        setOtpStep('phone');
+        setVerificationEmail('');
+        setEmailStep('email');
         setCurrentStep(1);
         setAuthenticatedUserId(null);
-        localStorage.removeItem('story_seed_user_phone');
+        localStorage.removeItem('story_seed_user_email');
         localStorage.removeItem('story_seed_user_name');
         localStorage.removeItem('story_seed_user_id');
       }
@@ -241,11 +236,10 @@ const Register = () => {
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user && session.user.phone) {
-        const currentPhone = session.user.phone.replace('+91', '').replace(/\D/g, '').slice(-10);
+      if (session?.user && session.user.email) {
         setAuthenticatedUserId(session.user.id);
-        setPhoneNumber(currentPhone);
-        setOtpStep('verified');
+        setVerificationEmail(session.user.email);
+        setEmailStep('verified');
 
         const savedRole = localStorage.getItem('story_seed_user_role');
         if (savedRole) {
@@ -254,12 +248,16 @@ const Register = () => {
           setCurrentStep(2);
         }
 
-        setPersonalInfo(prev => ({ ...prev, phone: currentPhone }));
-        localStorage.setItem('story_seed_user_phone', currentPhone);
+        setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
+        localStorage.setItem('story_seed_user_email', session.user.email || '');
         localStorage.setItem('story_seed_user_id', session.user.id);
+        
+        if (event === 'SIGNED_IN') {
+          toast({ title: 'Email Verified! ✓', description: 'Proceeding to role selection...' });
+        }
       } else if (event === 'SIGNED_OUT') {
-        setPhoneNumber('');
-        setOtpStep('phone');
+        setVerificationEmail('');
+        setEmailStep('email');
         setCurrentStep(1);
         setAuthenticatedUserId(null);
       }
@@ -268,62 +266,35 @@ const Register = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Send OTP
-  const handleSendOTP = async () => {
-    const phoneDigits = phoneNumber.replace(/\D/g, '');
-    if (phoneDigits.length !== 10) {
-      toast({ title: 'Invalid Phone Number', description: 'Please enter a valid 10-digit phone number.', variant: 'destructive' });
+  // Send Magic Link Email
+  const handleSendMagicLink = async () => {
+    if (!verificationEmail || !verificationEmail.includes('@')) {
+      toast({ title: 'Invalid Email', description: 'Please enter a valid email address.', variant: 'destructive' });
       return;
     }
-    setSendingOtp(true);
+    setSendingEmail(true);
     try {
-      const formattedPhone = `+91${phoneDigits}`;
-      const { error } = await supabase.auth.signInWithOtp({ phone: formattedPhone });
+      const redirectUrl = `${window.location.origin}/register${eventIdFromUrl ? `?eventId=${eventIdFromUrl}` : ''}`;
+      const { error } = await supabase.auth.signInWithOtp({ 
+        email: verificationEmail,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
       if (error) throw error;
-      toast({ title: 'OTP Sent', description: 'Please check your phone for the verification code.' });
-      setOtpStep('otp');
+      toast({ title: 'Magic Link Sent', description: 'Please check your email inbox and click the verification link.' });
+      setEmailStep('sent');
     } catch (error: any) {
-      console.error('Error sending OTP:', error);
-      toast({ title: 'Failed to Send OTP', description: error.message || 'Please try again later.', variant: 'destructive' });
+      console.error('Error sending magic link:', error);
+      toast({ title: 'Failed to Send Email', description: error.message || 'Please try again later.', variant: 'destructive' });
     } finally {
-      setSendingOtp(false);
+      setSendingEmail(false);
     }
   };
-
-  // Verify OTP
-  const handleVerifyOTP = async () => {
-    if (otp.length !== 6) {
-      toast({ title: 'Invalid OTP', description: 'Please enter the 6-digit verification code.', variant: 'destructive' });
-      return;
-    }
-    setVerifyingOtp(true);
-    try {
-      const phoneDigits = phoneNumber.replace(/\D/g, '');
-      const formattedPhone = `+91${phoneDigits}`;
-      const { data, error } = await supabase.auth.verifyOtp({ phone: formattedPhone, token: otp, type: 'sms' });
-      if (error) throw error;
-      if (data.user) {
-        setAuthenticatedUserId(data.user.id);
-        setOtpStep('verified');
-        setPersonalInfo(prev => ({ ...prev, phone: phoneDigits }));
-        localStorage.setItem('story_seed_user_phone', phoneDigits);
-        localStorage.setItem('story_seed_user_id', data.user.id);
-        toast({ title: 'Phone Verified! ✓', description: 'Proceeding to role selection...' });
-        setCurrentStep(2);
-      }
-    } catch (error: any) {
-      console.error('Error verifying OTP:', error);
-      toast({ title: 'Verification Failed', description: error.message || 'Invalid OTP. Please try again.', variant: 'destructive' });
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
-
-
 
   const validateStep1 = () => {
-    if (otpStep !== 'verified') {
-      toast({ title: 'Phone Verification Required', description: 'Please verify your phone number to continue.', variant: 'destructive' });
+    if (emailStep !== 'verified') {
+      toast({ title: 'Email Verification Required', description: 'Please verify your email to continue.', variant: 'destructive' });
       return false;
     }
     return true;
@@ -553,12 +524,6 @@ const Register = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const digits = value.replace(/\D/g, '');
-    const phoneDigits = digits.startsWith('91') ? digits.slice(2) : digits;
-    if (phoneDigits.length <= 10) setPhoneNumber(phoneDigits);
-  };
 
   if (isComplete) {
     return (
@@ -608,60 +573,53 @@ const Register = () => {
           {/* Form Content */}
           <div className="bg-card rounded-2xl p-8 shadow-lg border border-border/50 relative">
 
-            {/* Step 1: Get Started (Phone + Role) */}
+            {/* Step 1: Get Started (Email Verification) */}
             {currentStep === 1 && (
               <div className="space-y-8 animate-fade-in">
                 <div className="text-center">
                   <h2 className="font-display text-2xl font-semibold text-foreground">Get Started</h2>
-                  <p className="text-muted-foreground mt-2">Verify your phone number and select your role to begin</p>
+                  <p className="text-muted-foreground mt-2">Verify your email to begin registration</p>
                 </div>
 
-                {/* Phone Verification Section */}
+                {/* Email Verification Section */}
                 <div className="space-y-6">
-                  {otpStep === 'phone' && (
+                  {emailStep === 'email' && (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label>Phone Number</Label>
+                        <Label>Email Address</Label>
                         <div className="relative">
-                          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10"><span className="text-sm font-medium text-muted-foreground">IN+91</span></div>
-                          <Input type="tel" placeholder="Enter Your Phone Number" value={phoneNumber} onChange={handlePhoneChange} className="pl-16" maxLength={10} required />
+                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                          <Input type="email" placeholder="Enter your email address" value={verificationEmail} onChange={(e) => setVerificationEmail(e.target.value)} className="pl-10" required />
                         </div>
                       </div>
-                      <Button onClick={handleSendOTP} disabled={sendingOtp || phoneNumber.length !== 10} className="w-full" variant="hero" size="lg">{sendingOtp ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : <>Send Verification Code<ArrowRight className="w-4 h-4 ml-2" /></>}</Button>
+                      <Button onClick={handleSendMagicLink} disabled={sendingEmail || !verificationEmail.includes('@')} className="w-full" variant="hero" size="lg">{sendingEmail ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : <>Send Magic Link<ArrowRight className="w-4 h-4 ml-2" /></>}</Button>
                     </div>
                   )}
-                  {otpStep === 'otp' && (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="text-center block">Enter 6-digit OTP</Label>
-                        <div className="flex justify-center">
-                          <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-                            <InputOTPGroup>
-                              <InputOTPSlot index={0} /><InputOTPSlot index={1} /><InputOTPSlot index={2} /><InputOTPSlot index={3} /><InputOTPSlot index={4} /><InputOTPSlot index={5} />
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </div>
-                        <p className="text-sm text-muted-foreground text-center mt-2">Sent to +91 {phoneNumber}</p>
+                  {emailStep === 'sent' && (
+                    <div className="space-y-4 text-center">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <Mail className="w-12 h-12 mx-auto text-blue-600 mb-4" />
+                        <h3 className="font-semibold text-blue-800 mb-2">Check Your Email</h3>
+                        <p className="text-blue-600 text-sm mb-4">We've sent a magic link to <strong>{verificationEmail}</strong></p>
+                        <p className="text-blue-600 text-xs">Click the link in the email to continue your registration.</p>
                       </div>
-                      <Button onClick={handleVerifyOTP} disabled={verifyingOtp || otp.length !== 6} className="w-full" variant="hero" size="lg">
-                        {verifyingOtp ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Verifying...</> : <><ShieldCheck className="w-4 h-4 mr-2" />Verify & Continue</>}
-                      </Button>
-                      <Button variant="ghost" className="w-full" onClick={() => { setOtpStep('phone'); setOtp(''); }}>Change Phone Number</Button>
+                      <Button variant="ghost" className="w-full" onClick={() => setEmailStep('email')}>Change Email Address</Button>
+                      <Button variant="outline" className="w-full" onClick={handleSendMagicLink} disabled={sendingEmail}>{sendingEmail ? 'Sending...' : 'Resend Magic Link'}</Button>
                     </div>
                   )}
-                  {otpStep === 'verified' && (
+                  {emailStep === 'verified' && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3 animate-fade-in">
                       <div className="bg-green-100 p-2 rounded-full"><Check className="w-5 h-5 text-green-600" /></div>
                       <div className="flex-1">
-                        <p className="text-green-800 font-medium">Phone Verified</p>
-                        <p className="text-green-600 text-sm">+91 {phoneNumber}</p>
+                        <p className="text-green-800 font-medium">Email Verified</p>
+                        <p className="text-green-600 text-sm">{verificationEmail}</p>
                       </div>
                     </div>
                   )}
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button onClick={handleNext} disabled={otpStep !== 'verified'} variant="hero" size="lg" className="w-full sm:w-auto">
+                  <Button onClick={handleNext} disabled={emailStep !== 'verified'} variant="hero" size="lg" className="w-full sm:w-auto">
                     Continue <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>

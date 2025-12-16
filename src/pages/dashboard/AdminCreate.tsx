@@ -162,7 +162,8 @@ const AdminCreate = () => {
           is_active: true,
           is_payment_enabled: paymentEnabled,
           qr_code_url: qrUrl,
-          participation_type: participationType
+          participation_type: participationType,
+          event_type: participationType
         });
 
       if (insertError) {
@@ -282,10 +283,10 @@ const AdminCreate = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Who can participate?</label>
+            <label className="text-sm font-medium">Event Type</label>
             <Select value={participationType} onValueChange={setParticipationType}>
               <SelectTrigger>
-                <SelectValue placeholder="Select participants" />
+                <SelectValue placeholder="Select event type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="both">Both School & College</SelectItem>
@@ -293,6 +294,11 @@ const AdminCreate = () => {
                 <SelectItem value="college">College Students Only</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              {participationType === 'school' && 'Video storytelling competition for school students'}
+              {participationType === 'college' && 'Book writing competition for college students (PDF submission)'}
+              {participationType === 'both' && 'Open to both school and college students'}
+            </p>
           </div>
 
           <div className="flex items-center space-x-2 border p-4 rounded-xl">
