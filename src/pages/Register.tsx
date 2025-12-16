@@ -280,7 +280,9 @@ const Register = () => {
     }
     setSendingEmail(true);
     try {
-      const redirectUrl = `${window.location.origin}/register${eventIdFromUrl ? `?eventId=${eventIdFromUrl}` : ''}`;
+      // Use selectedEventId (from URL or dropdown) for redirect
+      const eventId = selectedEventId || eventIdFromUrl;
+      const redirectUrl = `${window.location.origin}/register${eventId ? `?eventId=${eventId}` : ''}`;
       const { error } = await supabase.auth.signInWithOtp({ 
         email: verificationEmail,
         options: {
