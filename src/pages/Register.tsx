@@ -47,6 +47,7 @@ const stepsFree = [
 ];
 
 const WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/youtube-upload';
+const CLG_WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/clg_registration';
 
 // Store user session based on Supabase auth user
 const saveUserSession = (email: string, firstName: string, userId: string): void => {
@@ -177,13 +178,24 @@ const Register = () => {
     fetchData();
   }, []);
 
-  // Lock event selection if eventId is in URL
+  // Lock event selection if eventId is in URL and auto-set role for single-type events
   useEffect(() => {
-    if (eventIdFromUrl) {
+    if (eventIdFromUrl && events.length > 0) {
       setSelectedEventId(eventIdFromUrl);
       setIsEventLocked(true);
+      
+      // Auto-set role based on event type
+      const event = events.find(e => e.id === eventIdFromUrl);
+      if (event) {
+        if (event.event_type === 'school') {
+          setRole('school');
+        } else if (event.event_type === 'college') {
+          setRole('college');
+        }
+        // For 'both' type, user needs to select role manually
+      }
     }
-  }, [eventIdFromUrl]);
+  }, [eventIdFromUrl, events]);
 
   // Validate selected event against role
   useEffect(() => {
@@ -193,7 +205,7 @@ const Register = () => {
         const isCompatible = !event.event_type || event.event_type === 'both' || event.event_type === role;
         if (!isCompatible) {
           setSelectedEventId('');
-          setIsEventLocked(false); // Unlock if we force clear it, so they can pick something else
+          setIsEventLocked(false);
           toast({
             title: 'Event Unavailable',
             description: `The event "${event.name}" is not open to ${role} students. Please select another event.`,
@@ -212,17 +224,18 @@ const Register = () => {
         setAuthenticatedUserId(session.user.id);
         setVerificationEmail(session.user.email);
         setEmailStep('verified');
-
+        setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
+        localStorage.setItem('story_seed_user_email', session.user.email || '');
+        localStorage.setItem('story_seed_user_id', session.user.id);
+        
+        // Determine which step to show based on role (will be updated when events load)
         const savedRole = localStorage.getItem('story_seed_user_role');
         if (savedRole) {
           setCurrentStep(3);
         } else {
-          setCurrentStep(2);
+          // Stay at step 1 until we know if we need role selection
+          setCurrentStep(1);
         }
-
-        setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
-        localStorage.setItem('story_seed_user_email', session.user.email || '');
-        localStorage.setItem('story_seed_user_id', session.user.id);
       } else {
         setVerificationEmail('');
         setEmailStep('email');
@@ -240,20 +253,13 @@ const Register = () => {
         setAuthenticatedUserId(session.user.id);
         setVerificationEmail(session.user.email);
         setEmailStep('verified');
-
-        const savedRole = localStorage.getItem('story_seed_user_role');
-        if (savedRole) {
-          setCurrentStep(3);
-        } else {
-          setCurrentStep(2);
-        }
-
         setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
         localStorage.setItem('story_seed_user_email', session.user.email || '');
         localStorage.setItem('story_seed_user_id', session.user.id);
         
+        // Don't auto-navigate here, let the user click Continue
         if (event === 'SIGNED_IN') {
-          toast({ title: 'Email Verified! ✓', description: 'Proceeding to role selection...' });
+          toast({ title: 'Email Verified! ✓', description: 'Click Continue to proceed.' });
         }
       } else if (event === 'SIGNED_OUT') {
         setVerificationEmail('');
@@ -455,7 +461,8 @@ const Register = () => {
 
       saveUserSession(personalInfo.email, personalInfo.firstName, authenticatedUserId);
 
-      // Webhook
+      // Webhook - use different URLs for school vs college
+      const webhookUrl = isCollegeEvent ? CLG_WEBHOOK_URL : WEBHOOK_URL;
       const formData = new FormData();
       formData.append('user_id', authenticatedUserId);
       formData.append('session_id', sessionId);
@@ -468,25 +475,30 @@ const Register = () => {
       formData.append('phone', phoneDigits);
       formData.append('age', personalInfo.age);
       formData.append('city', personalInfo.city);
-      if (role === 'school' && personalInfo.schoolName) formData.append('school_name', personalInfo.schoolName);
+      
+      if (role === 'school' && personalInfo.schoolName) {
+        formData.append('school_name', personalInfo.schoolName);
+      }
       if (role === 'college') {
         if (personalInfo.collegeName) formData.append('college_name', personalInfo.collegeName);
         if (personalInfo.degree) formData.append('degree', personalInfo.degree);
         if (personalInfo.branch) formData.append('branch', personalInfo.branch);
       }
+      
       formData.append('year_of_studying', storyDetails.classLevel);
-
       formData.append('story_title', storyDetails.title);
       formData.append('category', storyDetails.category);
       formData.append('class_level', storyDetails.classLevel);
       formData.append('story_description', storyDetails.description);
 
-      if (storyDetails.videoFile) formData.append('video', storyDetails.videoFile);
-      if (storyDetails.storyPdf) formData.append('story_pdf', storyDetails.storyPdf);
+      // Only append video for school events (not PDF for college events)
+      if (!isCollegeEvent && storyDetails.videoFile) {
+        formData.append('video', storyDetails.videoFile);
+      }
 
       try {
-        await fetch(WEBHOOK_URL, { method: 'POST', body: formData, mode: 'no-cors' });
-        console.log('Webhook sent successfully');
+        await fetch(webhookUrl, { method: 'POST', body: formData, mode: 'no-cors' });
+        console.log('Webhook sent successfully to:', webhookUrl);
       } catch (webhookError) {
         console.error('Webhook error:', webhookError);
       }
@@ -504,7 +516,14 @@ const Register = () => {
   const handleNext = async () => {
     if (currentStep === 1) {
       if (!validateStep1()) return;
-      // Auto-skip role selection for single-type events
+      
+      // Check if role was already auto-set (for single-type events from URL)
+      if (role) {
+        setCurrentStep(3);
+        return;
+      }
+      
+      // Check event type for auto-skip
       const event = events.find(e => e.id === selectedEventId);
       if (event?.event_type === 'school') {
         setRole('school');
@@ -513,6 +532,7 @@ const Register = () => {
         setRole('college');
         setCurrentStep(3);
       } else {
+        // For 'both' events or no event selected yet, show role selection
         setCurrentStep(2);
       }
       return;
