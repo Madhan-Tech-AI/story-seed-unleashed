@@ -1383,9 +1383,9 @@ const Register = () => {
                   </div>
                 )}
 
-                <div className="flex flex-col sm:flex-row justify-between gap-3">
-                  <Button variant="ghost" onClick={handlePrev} disabled={isSubmitting} className="text-muted-foreground hover:text-foreground w-full sm:w-auto"><ArrowLeft className="w-4 h-4 mr-2" /> Previous</Button>
-                  <Button onClick={handleNext} disabled={isSubmitting || uploadStatus === 'uploading'} variant="hero" className="w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-3">
+                  <Button variant="ghost" onClick={handlePrev} disabled={isSubmitting} className="text-muted-foreground hover:text-foreground w-full sm:w-auto order-2 sm:order-1"><ArrowLeft className="w-4 h-4 mr-2" /> Previous</Button>
+                  <Button onClick={handleNext} disabled={isSubmitting || uploadStatus === 'uploading'} variant="hero" className="w-full sm:w-auto order-1 sm:order-2">
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
