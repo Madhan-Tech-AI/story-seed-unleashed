@@ -43,22 +43,18 @@ export const Navbar = () => {
     setHoveredPath(location.pathname);
   }, [location.pathname]);
 
-  // Check if user is logged in (phone or email stored)
+  // Check if user is verified (verified flag must be true)
   useEffect(() => {
-    const checkUserLogin = () => {
-      const storedPhone = localStorage.getItem('story_seed_user_phone');
-      const storedEmail = localStorage.getItem('story_seed_user_email');
-      setIsUserRegistered(
-        (!!storedPhone && storedPhone.length >= 10) || 
-        (!!storedEmail && storedEmail.length > 0)
-      );
+    const checkUserVerification = () => {
+      const isVerified = localStorage.getItem('story_seed_verified') === 'true';
+      setIsUserRegistered(isVerified);
     };
 
-    checkUserLogin();
+    checkUserVerification();
 
     // Listen for storage changes (when user registers or logs out)
     const handleStorageChange = () => {
-      checkUserLogin();
+      checkUserVerification();
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -136,13 +132,14 @@ export const Navbar = () => {
   }, [location]);
 
   const handleLogout = async () => {
-    // Clear all user session data
+    // Clear all user session data and reset verification
     localStorage.removeItem('story_seed_user_phone');
     localStorage.removeItem('story_seed_user_name');
     localStorage.removeItem('story_seed_user_id');
     localStorage.removeItem('story_seed_user_email');
     localStorage.removeItem('story_seed_user_role');
     localStorage.removeItem('story_seed_session_id');
+    localStorage.removeItem('story_seed_verified');
     setIsUserRegistered(false);
     await logout();
     navigate('/');

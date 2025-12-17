@@ -110,9 +110,10 @@ const UserLogin = () => {
       }
 
       if (data.user) {
-        // Save session info to localStorage
+        // Save session info to localStorage and set verified flag
         localStorage.setItem('story_seed_user_phone', phoneDigits);
         localStorage.setItem('story_seed_user_id', data.user.id);
+        localStorage.setItem('story_seed_verified', 'true');
         
         // Try to get user name from registrations
         const { data: registration } = await supabase
