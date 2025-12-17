@@ -76,16 +76,14 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is logged in
+  // Check if user is verified - registration requires verification
   useEffect(() => {
-    const storedPhone = localStorage.getItem('story_seed_user_phone');
-    const storedEmail = localStorage.getItem('story_seed_user_email');
-    const isLoggedIn = (!!storedPhone && storedPhone.length >= 10) || (!!storedEmail && storedEmail.length > 0);
+    const isVerified = localStorage.getItem('story_seed_verified') === 'true';
     
-    if (!isLoggedIn) {
+    if (!isVerified) {
       toast({
-        title: 'Login Required',
-        description: 'Please login to register for an event.',
+        title: 'Verification Required',
+        description: 'Please verify your email to register for an event.',
         variant: 'destructive',
       });
       navigate('/user');
@@ -248,6 +246,7 @@ const Register = () => {
         setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
         localStorage.setItem('story_seed_user_email', session.user.email || '');
         localStorage.setItem('story_seed_user_id', session.user.id);
+        localStorage.setItem('story_seed_verified', 'true');
 
         // Determine which step to show based on role (will be updated when events load)
         const savedRole = localStorage.getItem('story_seed_user_role');
@@ -277,6 +276,7 @@ const Register = () => {
         setPersonalInfo(prev => ({ ...prev, email: session.user.email || '' }));
         localStorage.setItem('story_seed_user_email', session.user.email || '');
         localStorage.setItem('story_seed_user_id', session.user.id);
+        localStorage.setItem('story_seed_verified', 'true');
 
         // Don't auto-navigate here, let the user click Continue
         if (event === 'SIGNED_IN') {

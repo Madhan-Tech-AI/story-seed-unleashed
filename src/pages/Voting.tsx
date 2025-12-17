@@ -34,16 +34,14 @@ const Voting = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is logged in
+  // Check if user is verified - voting requires verification
   useEffect(() => {
-    const storedPhone = localStorage.getItem('story_seed_user_phone');
-    const storedEmail = localStorage.getItem('story_seed_user_email');
-    const isLoggedIn = (!!storedPhone && storedPhone.length >= 10) || (!!storedEmail && storedEmail.length > 0);
+    const isVerified = localStorage.getItem('story_seed_verified') === 'true';
     
-    if (!isLoggedIn) {
+    if (!isVerified) {
       toast({
-        title: 'Login Required',
-        description: 'Please login to vote.',
+        title: 'Verification Required',
+        description: 'Please verify your email to vote.',
         variant: 'destructive',
       });
       navigate('/user');
