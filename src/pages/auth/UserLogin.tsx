@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Loader2, ShieldCheck, Check, LogIn, Mail } from 'lucide-react';
+import { Phone, ArrowRight, Loader2, ShieldCheck, Check, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -11,67 +12,53 @@ const UserLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  const [email, setEmail] = useState('');
-  const [emailStep, setEmailStep] = useState<'email' | 'sent' | 'verified'>('email');
-  const [sendingEmail, setSendingEmail] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpStep, setOtpStep] = useState<'phone' | 'otp' | 'verified'>('phone');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
 
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // User is already logged in, redirect to home
-        navigate('/');
+        // User is already logged in, redirect to dashboard
+        navigate('/user/dashboard');
       }
     };
     checkSession();
+  }, [navigate]);
 
-    // Listen for auth state changes (magic link callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Save session info to localStorage and set verified flag
-        localStorage.setItem('story_seed_user_email', session.user.email || '');
-        localStorage.setItem('story_seed_user_id', session.user.id);
-        localStorage.setItem('story_seed_verified', 'true');
-        
-        setEmailStep('verified');
-        
-        toast({
-          title: 'Login Successful! ✓',
-          description: 'Welcome back!',
-        });
+  // Handle phone input
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const digits = value.replace(/\D/g, '');
+    const phoneDigits = digits.startsWith('91') ? digits.slice(2) : digits;
+    if (phoneDigits.length <= 10) {
+      setPhoneNumber(phoneDigits);
+    }
+  };
 
-        // Redirect to home page after short delay
-        setTimeout(() => {
-          navigate('/');
-        }, 1500);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate, toast]);
-
-  // Send Magic Link Email
-  const handleSendMagicLink = async () => {
-    if (!email || !email.includes('@')) {
+  // Send OTP using Supabase Phone Auth
+  const handleSendOTP = async () => {
+    const phoneDigits = phoneNumber.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
       toast({
-        title: 'Invalid Email',
-        description: 'Please enter a valid email address.',
+        title: 'Invalid Phone Number',
+        description: 'Please enter a valid 10-digit phone number.',
         variant: 'destructive',
       });
       return;
     }
 
-    setSendingEmail(true);
+    setSendingOtp(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/user`;
+      const formattedPhone = `+91${phoneDigits}`;
       
       const { error } = await supabase.auth.signInWithOtp({
-        email: email,
-        options: {
-          emailRedirectTo: redirectUrl,
-        },
+        phone: formattedPhone,
       });
 
       if (error) {
@@ -79,19 +66,88 @@ const UserLogin = () => {
       }
 
       toast({
-        title: 'Magic Link Sent',
-        description: 'Check your inbox and click the link to login.',
+        title: 'OTP Sent',
+        description: 'Please check your phone for the verification code.',
       });
-      setEmailStep('sent');
+      setOtpStep('otp');
     } catch (error: any) {
-      console.error('Error sending magic link:', error);
+      console.error('Error sending OTP:', error);
       toast({
-        title: 'Failed to Send Email',
+        title: 'Failed to Send OTP',
         description: error.message || 'Please try again later.',
         variant: 'destructive',
       });
     } finally {
-      setSendingEmail(false);
+      setSendingOtp(false);
+    }
+  };
+
+  // Verify OTP using Supabase Phone Auth
+  const handleVerifyOTP = async () => {
+    if (otp.length !== 6) {
+      toast({
+        title: 'Invalid OTP',
+        description: 'Please enter the 6-digit verification code.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setVerifyingOtp(true);
+
+    try {
+      const phoneDigits = phoneNumber.replace(/\D/g, '');
+      const formattedPhone = `+91${phoneDigits}`;
+
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: formattedPhone,
+        token: otp,
+        type: 'sms',
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        // Save session info to localStorage and set verified flag
+        localStorage.setItem('story_seed_user_phone', phoneDigits);
+        localStorage.setItem('story_seed_user_id', data.user.id);
+        localStorage.setItem('story_seed_verified', 'true');
+        
+        // Try to get user name from registrations
+        const { data: registration } = await supabase
+          .from('registrations')
+          .select('first_name')
+          .eq('phone', phoneDigits)
+          .limit(1)
+          .maybeSingle();
+        
+        if (registration?.first_name) {
+          localStorage.setItem('story_seed_user_name', registration.first_name);
+        }
+        
+        setOtpStep('verified');
+        
+        toast({
+          title: 'Login Successful! ✓',
+          description: 'Welcome back!',
+        });
+
+        // Redirect to dashboard after short delay
+        setTimeout(() => {
+          navigate('/user/dashboard');
+        }, 1500);
+      }
+    } catch (error: any) {
+      console.error('Error verifying OTP:', error);
+      toast({
+        title: 'Verification Failed',
+        description: error.message || 'Invalid OTP. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingOtp(false);
     }
   };
 
@@ -113,42 +169,45 @@ const UserLogin = () => {
                 User Login
               </h1>
               <p className="text-muted-foreground">
-                Sign in with your email
+                Sign in with your phone number
               </p>
             </div>
 
-            {/* Email Input Step */}
-            {emailStep === 'email' && (
+            {/* Phone Input Step */}
+            {otpStep === 'phone' && (
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label>Email Address</Label>
+                  <Label>Phone Number</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                      <span className="text-sm font-medium text-muted-foreground">IN+91</span>
+                    </div>
                     <Input
-                      type="email"
-                      placeholder="Enter your email address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
+                      type="tel"
+                      placeholder="9342745299"
+                      value={phoneNumber}
+                      onChange={handlePhoneChange}
+                      className="pl-16"
+                      maxLength={10}
                       required
                     />
                   </div>
                 </div>
                 <Button
-                  onClick={handleSendMagicLink}
-                  disabled={sendingEmail || !email.includes('@')}
+                  onClick={handleSendOTP}
+                  disabled={sendingOtp || phoneNumber.length !== 10}
                   className="w-full"
                   variant="hero"
                   size="lg"
                 >
-                  {sendingEmail ? (
+                  {sendingOtp ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Sending Magic Link...
+                      Sending OTP...
                     </>
                   ) : (
                     <>
-                      Send Magic Link
+                      Send Verification Code
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </>
                   )}
@@ -156,68 +215,71 @@ const UserLogin = () => {
               </div>
             )}
 
-            {/* Magic Link Sent Step */}
-            {emailStep === 'sent' && (
+            {/* OTP Input Step */}
+            {otpStep === 'otp' && (
               <div className="space-y-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-                  <Mail className="w-12 h-12 mx-auto text-blue-600 mb-4" />
-                  <h3 className="font-semibold text-blue-800 mb-2">Check Your Email</h3>
-                  <p className="text-blue-600 text-sm mb-4">
-                    We've sent a magic link to <strong>{email}</strong>
-                  </p>
-                  <p className="text-blue-600 text-xs">
-                    Click the link in the email to login.
+                <div className="space-y-4">
+                  <Label className="text-center block">Enter 6-digit OTP</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otp}
+                      onChange={setOtp}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Sent to +91 {phoneNumber}
                   </p>
                 </div>
                 <Button
-                  variant="hero"
+                  onClick={handleVerifyOTP}
+                  disabled={verifyingOtp || otp.length !== 6}
                   className="w-full"
-                  onClick={() => {
-                    const userAgent = navigator.userAgent.toLowerCase();
-                    const isAndroid = /android/i.test(userAgent);
-                    const isIOS = /iphone|ipad|ipod/i.test(userAgent);
-                    
-                    if (isAndroid) {
-                      window.location.href = 'googlegmail://';
-                    } else if (isIOS) {
-                      window.location.href = 'message://';
-                    } else {
-                      window.open('https://mail.google.com/mail/u/0/#inbox', '_blank');
-                    }
-                  }}
+                  variant="hero"
+                  size="lg"
                 >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Open Email Inbox
+                  {verifyingOtp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 mr-2" />
+                      Verify & Login
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="ghost"
                   className="w-full"
                   onClick={() => {
-                    setEmailStep('email');
-                    setEmail('');
+                    setOtpStep('phone');
+                    setOtp('');
                   }}
                 >
-                  Change Email Address
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={handleSendMagicLink}
-                  disabled={sendingEmail}
-                >
-                  {sendingEmail ? 'Sending...' : 'Resend Magic Link'}
+                  Change Phone Number
                 </Button>
               </div>
             )}
 
             {/* Verified Step */}
-            {emailStep === 'verified' && (
+            {otpStep === 'verified' && (
               <div className="text-center space-y-4">
                 <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
                   <Check className="w-10 h-10 text-green-600" />
                 </div>
                 <h3 className="text-xl font-semibold text-green-600">Login Successful!</h3>
-                <p className="text-muted-foreground">Redirecting to home page...</p>
+                <p className="text-muted-foreground">Redirecting to your dashboard...</p>
                 <Loader2 className="w-6 h-6 mx-auto animate-spin text-primary" />
               </div>
             )}
