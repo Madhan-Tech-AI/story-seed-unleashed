@@ -362,46 +362,14 @@ const JudgeSubmissions = () => {
                       allowFullScreen
                     />
                   ) : (
-                    <>
-                      <video
-                        ref={videoRef}
-                        src={selectedParticipant.videoUrl}
-                        className="w-full h-full object-contain"
-                        controls
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-                        <div className="mb-3">
-                          <Slider
-                            value={videoProgress}
-                            onValueChange={handleSeek}
-                            max={100}
-                            step={0.1}
-                            className="w-full"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" onClick={handlePlayPause} className="bg-background/90">
-                              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleFullscreen} className="bg-background/90">
-                              <Maximize className="w-4 h-4" />
-                            </Button>
-                            <Select value={playbackSpeed} onValueChange={handleSpeedChange}>
-                              <SelectTrigger className="w-20 h-8 bg-background/90">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="0.5">0.5x</SelectItem>
-                                <SelectItem value="1">1x</SelectItem>
-                                <SelectItem value="1.5">1.5x</SelectItem>
-                                <SelectItem value="2">2x</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </>
+                    <video
+                      ref={videoRef}
+                      src={selectedParticipant.videoUrl}
+                      className="w-full h-full object-contain bg-black"
+                      controls
+                      controlsList="nodownload"
+                      playsInline
+                    />
                   )
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">

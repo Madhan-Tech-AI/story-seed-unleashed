@@ -34,19 +34,8 @@ const Voting = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is verified - voting requires verification
-  useEffect(() => {
-    const isVerified = localStorage.getItem('story_seed_verified') === 'true';
-    
-    if (!isVerified) {
-      toast({
-        title: 'Verification Required',
-        description: 'Please verify your email to vote.',
-        variant: 'destructive',
-      });
-      navigate('/user');
-    }
-  }, [navigate, toast]);
+  // Voting is open to everyone - no login required
+  // Voter details (name/phone) are collected during the voting process
   
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [judgeTop6Ids, setJudgeTop6Ids] = useState<Set<string>>(new Set());
@@ -855,8 +844,10 @@ const Voting = () => {
                   ) : (
                     <video
                       src={selectedContestant.yt_link}
-                      className="w-full h-full object-contain"
+                      className="w-full h-full object-contain bg-black"
                       controls
+                      controlsList="nodownload"
+                      playsInline
                       autoPlay={false}
                     />
                   )
