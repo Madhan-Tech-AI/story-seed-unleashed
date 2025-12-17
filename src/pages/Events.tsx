@@ -52,7 +52,7 @@ const Events = () => {
           const now = new Date();
           const start = event.start_date ? new Date(event.start_date) : null;
           const end = event.end_date ? new Date(event.end_date) : null;
-          
+
           let status: 'live' | 'upcoming' | 'ended' = 'upcoming';
           if (start && now < start) status = 'upcoming';
           else if (end && now > end) status = 'ended';
@@ -110,19 +110,19 @@ const Events = () => {
     // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      const matchesSearch = 
+      const matchesSearch =
         event.name.toLowerCase().includes(query) ||
         (event.description && event.description.toLowerCase().includes(query));
       if (!matchesSearch) return false;
     }
-    
+
     // Apply event type filter
     if (eventTypeFilter !== 'all') {
       if (event.event_type !== eventTypeFilter && event.event_type !== 'both') {
         return false;
       }
     }
-    
+
     // Apply category filter
     if (activeCategory === 'All') return true;
     if (activeCategory === 'Live') return event.status === 'live';
@@ -237,7 +237,7 @@ const Events = () => {
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                      
+
                       {/* Status Badge */}
                       <div className="absolute top-4 left-4">
                         <span
@@ -246,8 +246,8 @@ const Events = () => {
                             event.status === 'live'
                               ? 'bg-red-500/90 text-white pulse-live'
                               : event.status === 'upcoming'
-                              ? 'bg-blue-500/90 text-white'
-                              : 'bg-gray-500/90 text-white'
+                                ? 'bg-blue-500/90 text-white'
+                                : 'bg-gray-500/90 text-white'
                           )}
                         >
                           {event.status === 'live' ? '🔴 Live Now' : event.status === 'upcoming' ? 'Coming Soon' : 'Ended'}
@@ -300,7 +300,7 @@ const Events = () => {
                         {/* Only show Vote button for school events */}
                         {event.event_type === 'school' && (
                           <Link to={`/voting/${event.id}`} className="flex-1">
-                            <Button variant="outline" className="w-full group/btn border-primary/30 hover:bg-primary/10">
+                            <Button variant="outline" className="w-full group/btn bg-white text-primary hover:bg-primary hover:text-white border-2 border-primary transition-all duration-300">
                               <Vote className="w-4 h-4 mr-2" />
                               Vote
                             </Button>
