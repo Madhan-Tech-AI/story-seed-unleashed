@@ -56,6 +56,7 @@ const Voting = () => {
   const [eligibleForVotingIds, setEligibleForVotingIds] = useState<Set<string>>(new Set());
 
   // Fetch judge rankings and get top 45 (excluding top 6 winners) for voting page
+  // Voting only opens after ALL videos have been reviewed by judges
   const fetchJudgeRankingsForVoting = async (eventIdToFetch: string) => {
     try {
       // Fetch registrations for this event
@@ -64,12 +65,18 @@ const Voting = () => {
         .select('id, class_level')
         .eq('event_id', eventIdToFetch);
 
+      if (!registrations || registrations.length === 0) {
+        setEligibleForVotingIds(new Set());
+        setJudgeTop6Ids(new Set());
+        return;
+      }
+
       // Fetch all votes with scores
       const { data: votes } = await supabase
         .from('votes')
         .select('registration_id, user_id, score');
 
-      // Fetch judge user IDs
+      // Fetch judge user IDs using the has_role function or user_roles table
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('user_id, role');
@@ -80,7 +87,7 @@ const Voting = () => {
           .map(ur => ur.user_id)
       );
 
-      // Calculate judge scores
+      // Calculate judge scores per registration
       const scoreData: Record<string, { total: number; count: number }> = {};
       (votes || []).forEach(vote => {
         if (judgeUserIds.has(vote.user_id)) {
@@ -92,18 +99,32 @@ const Voting = () => {
         }
       });
 
+      // Check if ALL registrations have been reviewed by at least one judge
+      const totalRegistrations = registrations.length;
+      const reviewedRegistrations = registrations.filter(reg => scoreData[reg.id]?.count > 0).length;
+      
+      // Only open voting if ALL videos have been reviewed by judges
+      if (reviewedRegistrations < totalRegistrations) {
+        console.log(`Voting not open yet: ${reviewedRegistrations}/${totalRegistrations} videos reviewed`);
+        setEligibleForVotingIds(new Set());
+        setJudgeTop6Ids(new Set());
+        return;
+      }
+
       // Get entries with judge scores, sorted by average score
-      const entriesWithScores = (registrations || [])
+      const entriesWithScores = registrations
         .map(reg => ({
           id: reg.id,
           class_level: (reg as any).class_level as string | null,
           average_score: scoreData[reg.id] ? scoreData[reg.id].total / scoreData[reg.id].count : 0,
           total_reviews: scoreData[reg.id]?.count || 0,
         }))
-        .filter(e => e.total_reviews > 0) // Only include those reviewed by judges
-        .sort((a, b) => b.average_score - a.average_score);
+        .sort((a, b) => {
+          if (b.average_score !== a.average_score) return b.average_score - a.average_score;
+          return b.total_reviews - a.total_reviews;
+        });
 
-      // Get balanced top 6 (2 per class level) - these are WINNERS to exclude
+      // Get balanced top 6 (2 per class level) - these are WINNERS to exclude from voting
       const classLevels = ['Tiny Tales', 'Young Dreamers', 'Story Champions'];
       const top6: typeof entriesWithScores = [];
       
@@ -112,7 +133,7 @@ const Voting = () => {
         top6.push(...entriesForLevel.slice(0, 2));
       }
       
-      // Fill remaining with top entries if needed
+      // Fill remaining with top entries if needed (in case some classes have fewer than 2)
       if (top6.length < 6) {
         const top6Ids = new Set(top6.map(e => e.id));
         const remaining = entriesWithScores.filter(e => !top6Ids.has(e.id));
@@ -122,13 +143,15 @@ const Voting = () => {
       const top6Ids = new Set(top6.slice(0, 6).map(e => e.id));
       setJudgeTop6Ids(top6Ids);
 
-      // Get next 45 entries after top 6 for community voting
+      // Get remaining entries after top 6 for community voting (up to 45)
       const remainingAfterTop6 = entriesWithScores.filter(e => !top6Ids.has(e.id));
-      const top45ForVoting = remainingAfterTop6.slice(0, 45);
+      const eligibleForVoting = remainingAfterTop6.slice(0, 45);
       
-      setEligibleForVotingIds(new Set(top45ForVoting.map(e => e.id)));
+      setEligibleForVotingIds(new Set(eligibleForVoting.map(e => e.id)));
     } catch (error) {
       console.error('Error fetching judge rankings:', error);
+      setEligibleForVotingIds(new Set());
+      setJudgeTop6Ids(new Set());
     }
   };
 
@@ -673,7 +696,7 @@ const Voting = () => {
     );
   }
 
-  // Show message if judges haven't voted yet
+  // Show message if judges haven't finished reviewing ALL videos yet
   if (contestants.length > 0 && eligibleForVotingIds.size === 0) {
     return (
       <div className="pt-20 min-h-screen flex items-center justify-center bg-background">
@@ -682,11 +705,11 @@ const Voting = () => {
             Voting Not Open Yet
           </h1>
           <p className="text-muted-foreground mb-8">
-            Judges are currently reviewing submissions. Community voting will open after judges complete their evaluations.
+            Judges are currently reviewing all submissions. Community voting will open after judges complete their evaluations of all videos.
           </p>
           <Link to="/leaderboard">
             <Button variant="hero">
-              View Leaderboard
+              View Judge Leaderboard
             </Button>
           </Link>
         </div>
