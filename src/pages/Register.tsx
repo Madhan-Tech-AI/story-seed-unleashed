@@ -76,19 +76,8 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is verified - registration requires verification
-  useEffect(() => {
-    const isVerified = localStorage.getItem('story_seed_verified') === 'true';
-    
-    if (!isVerified) {
-      toast({
-        title: 'Verification Required',
-        description: 'Please verify your email to register for an event.',
-        variant: 'destructive',
-      });
-      navigate('/user');
-    }
-  }, [navigate, toast]);
+  // Registration is open to everyone - no login required
+  // Email verification happens during the registration flow itself
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isComplete, setIsComplete] = useState(false);
