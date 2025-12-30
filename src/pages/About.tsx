@@ -242,11 +242,7 @@ const About = () => {
               {!isVideoPlaying ? (
                 <>
                   <img
-<<<<<<< HEAD
                     src={logoImage}
-=======
-                    src="src/assets"
->>>>>>> 23d5cf59d88271517a1f71168ae597cee3a2fc02
                     alt="Video thumbnail"
                     className="w-full h-full object-cover"
                   />
