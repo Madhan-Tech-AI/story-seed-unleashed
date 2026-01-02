@@ -92,8 +92,8 @@ const Contact = () => {
                 <div>
                   <h3 className="font-semibold text-foreground mb-1 text-sm sm:text-base">Our Location</h3>
                   <p className="text-muted-foreground text-sm sm:text-base">
-                    123 Story Lane, Creative Hub<br />
-                    Mumbai, Maharashtra 400001
+                    36/11 Bose St, Krishnamoorthy Nagar<br />
+                    Kodungaiyur East, Chennai 600 118
                   </p>
                 </div>
               </div>
