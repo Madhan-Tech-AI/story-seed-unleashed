@@ -140,7 +140,7 @@ const FAQ = () => {
               href="mailto:support@storyseed.studio"
               className="text-primary hover:underline font-medium text-sm sm:text-base"
             >
-              support@storyseed.studio
+              hello@storyseed.in
             </a>
           </div>
         </div>
