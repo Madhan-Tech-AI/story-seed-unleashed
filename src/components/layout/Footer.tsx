@@ -49,7 +49,7 @@ const socialLinks = [{
   label: 'YouTube'
 }, {
   icon: Linkedin,
-  href: 'https://www.linkedin.com/company/storyseed-studio',
+  href: 'https://www.linkedin.com/in/story-seed-studio-3a95a5392/',
   label: 'LinkedIn'
 }];
 export const Footer = () => {
