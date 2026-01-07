@@ -3,27 +3,21 @@ import { Shield } from 'lucide-react';
 const Privacy = () => {
   return (
     <div className="page-enter">
-      <section className="pt-0 pb-0 bg-gradient-to-br from-primary via-primary to-primary/80 relative overflow-hidden">
+      <section className="pt-0 pb-0 bg-gradient-to-br from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(212,175,55,0.15)_1px,transparent_0)] [background-size:20px_20px]"></div>
         </div>
         <div className="container mx-auto px-4 min-h-[200px] flex flex-col items-center justify-center text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary-foreground/20 rounded-full mb-4">
-            <Shield className="w-4 h-4 text-primary-foreground" />
-            <span className="text-sm font-medium text-primary-foreground">Legal</span>
-          </div>
           <h1 className="font-display text-4xl md:text-5xl font-bold text-primary-foreground">
             Privacy Policy
           </h1>
         </div>
       </section>
 
-      <section className="pt-0 pb-16 bg-background">
+      <section className="pt-12 pb-1 bg-background">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="prose prose-lg max-w-none">
-            <p className="text-muted-foreground mb-8 text-center">
-              Last updated: January 1, 2025
-            </p>
+
 
             <div className="space-y-6">
               <div className="group relative bg-card border border-border rounded-xl p-6 md:p-8 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 animate-fade-in">
@@ -93,7 +87,7 @@ const Privacy = () => {
                     6. Your Rights
                   </h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    You have the right to access, correct, or delete your personal information. You can also opt out of marketing communications. To exercise these rights, contact us at privacy@storyseed.studio
+                    You have the right to access, correct, or delete your personal information. You can also opt out of marketing communications. To exercise these rights, contact us at hello@storyseed.in
                   </p>
                 </div>
               </div>
@@ -105,7 +99,7 @@ const Privacy = () => {
                     7. Contact Us
                   </h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    For questions about this Privacy Policy or data practices, contact our Data Protection Officer at privacy@storyseed.studio
+                    For questions about this Privacy Policy or data practices, contact our Data Protection Officer at hello@storyseed.in
                   </p>
                 </div>
               </div>

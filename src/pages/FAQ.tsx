@@ -67,16 +67,21 @@ const FAQ = () => {
 
   return (
     <div className="page-enter">
-      <section className="py-12 sm:py-16 bg-gradient-warm">
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full mb-4">
-            <HelpCircle className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Help Center</span>
-          </div>
-          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-4">
+      <section className="py-12 sm:py-16 bg-gradient-to-br from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] relative overflow-hidden">
+        {/* Decorative Pattern Overlay */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.15)_1px,transparent_0)] [background-size:40px_40px]"></div>
+        </div>
+
+        {/* Decorative Elements */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 left-10 w-40 h-40 bg-[#D4AF37]/20 rounded-full blur-3xl"></div>
+
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 drop-shadow-lg">
             Frequently Asked Questions
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto">
+          <p className="text-white/90 text-base sm:text-lg max-w-2xl mx-auto drop-shadow-md">
             Find answers to common questions about Story Seed Studio
           </p>
         </div>
