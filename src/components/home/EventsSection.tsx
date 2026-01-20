@@ -17,6 +17,9 @@ interface Event {
   end_date: string | null;
   is_active: boolean;
   registration_open: boolean;
+  is_payment_enabled: boolean;
+  payment_deadline: string | null;
+  registration_start_date: string | null;
   participantCount: number;
   status: 'live' | 'upcoming' | 'ended';
   userStatus?: 'none' | 'paid' | 'registered';
@@ -89,7 +92,10 @@ export const EventsSection = () => {
             start_date: event.start_date,
             end_date: event.end_date,
             is_active: event.is_active,
-            registration_open: event.registration_open !== false,
+            is_payment_enabled: event.is_payment_enabled !== false,
+            registration_open: event.registration_open === true,
+            payment_deadline: event.payment_deadline,
+            registration_start_date: event.registration_start_date,
             participantCount: count || 0,
             status,
             userStatus,
@@ -245,29 +251,65 @@ export const EventsSection = () => {
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      {event.userStatus === 'registered' ? (
-                        <Button variant="outline" className="flex-1 bg-green-50 text-green-600 border-green-200 cursor-default hover:bg-green-50">
-                          <Check className="w-4 h-4 mr-2" /> Registered
-                        </Button>
-                      ) : event.userStatus === 'paid' ? (
-                        <Link to={`/register?eventId=${event.id}`} className="flex-1">
-                          <Button variant="hero" className="w-full group bg-gradient-to-r from-green-600 to-emerald-600 hover:opacity-90">
-                            Complete Registration
-                            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                      {(() => {
+                        const now = new Date();
+                        const isPayEnabled = event.is_payment_enabled &&
+                          (!event.payment_deadline || now < new Date(event.payment_deadline));
+
+                        const isRegEnabled = event.registration_open ||
+                          (event.registration_start_date && now > new Date(event.registration_start_date));
+
+                        if (event.userStatus === 'registered') {
+                          return (
+                            <Button variant="outline" className="flex-1 bg-green-50 text-green-600 border-green-200 cursor-default hover:bg-green-50">
+                              <Check className="w-4 h-4 mr-2" /> Registration Complete
+                            </Button>
+                          );
+                        }
+
+                        if (event.userStatus === 'paid') {
+                          if (isRegEnabled) {
+                            return (
+                              <Link to={`/register?eventId=${event.id}`} className="flex-1">
+                                <Button variant="hero" className="w-full group bg-gradient-to-r from-green-600 to-emerald-600 hover:opacity-90">
+                                  Verify & Submit Story
+                                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                                </Button>
+                              </Link>
+                            );
+                          }
+                          return (
+                            <Button variant="outline" className="flex-1 bg-blue-50 text-blue-600 border-blue-200 cursor-default">
+                              Paid - Awaiting Submission Phase
+                            </Button>
+                          );
+                        }
+
+                        if (isPayEnabled) {
+                          return (
+                            <Link to={`/pay-event/${event.id}`} className="flex-1">
+                              <Button variant="hero" className="w-full group bg-gradient-to-r from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] hover:opacity-90">
+                                Participate & Pay
+                                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                              </Button>
+                            </Link>
+                          );
+                        }
+
+                        if (isRegEnabled) {
+                          return (
+                            <Button variant="outline" className="flex-1 opacity-50 cursor-not-allowed" disabled>
+                              Payment Closed (Registration Active)
+                            </Button>
+                          );
+                        }
+
+                        return (
+                          <Button variant="outline" className="flex-1 opacity-50 cursor-not-allowed" disabled>
+                            Registration Closed
                           </Button>
-                        </Link>
-                      ) : event.registration_open ? (
-                        <Link to={`/pay-event/${event.id}`} className="flex-1">
-                          <Button variant="hero" className="w-full group bg-gradient-to-r from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] hover:opacity-90">
-                            Participate & Pay
-                            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Button variant="outline" className="flex-1 opacity-50 cursor-not-allowed" disabled>
-                          Registration Closed
-                        </Button>
-                      )}
+                        );
+                      })()}
                       <Link to={`/voting/${event.id}`} className="flex-1">
                         <Button variant="outline" className="w-full group bg-white text-[#9B1B1B] hover:bg-[#9B1B1B] hover:text-white border-2 border-[#9B1B1B] transition-all duration-300 font-semibold">
                           <Vote className="w-4 h-4 mr-2" />

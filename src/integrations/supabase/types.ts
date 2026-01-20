@@ -320,6 +320,8 @@ export type Database = {
           updated_at: string | null
           voting_open: boolean | null
           winner_id: string | null
+          payment_deadline: string | null
+          registration_start_date: string | null
         }
         Insert: {
           banner_image?: string | null
@@ -341,6 +343,8 @@ export type Database = {
           updated_at?: string | null
           voting_open?: boolean | null
           winner_id?: string | null
+          payment_deadline?: string | null
+          registration_start_date?: string | null
         }
         Update: {
           banner_image?: string | null
@@ -362,6 +366,8 @@ export type Database = {
           updated_at?: string | null
           voting_open?: boolean | null
           winner_id?: string | null
+          payment_deadline?: string | null
+          registration_start_date?: string | null
         }
         Relationships: [
           {

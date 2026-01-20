@@ -371,8 +371,14 @@ const Register = () => {
     if (currentStep === 2) {
       if (await validateStep2()) {
         const event = events.find(e => e.id === selectedEventId);
-        if (event?.event_type === 'school' || event?.event_type === 'college') setCurrentStep(4);
-        else setCurrentStep(3);
+        // If role is already set (e.g. from auto-fetch or previous step), skip role selection
+        if (role) {
+          setCurrentStep(4);
+        } else if (event?.event_type === 'school' || event?.event_type === 'college') {
+          setCurrentStep(4);
+        } else {
+          setCurrentStep(3);
+        }
       }
       return;
     }
@@ -406,14 +412,14 @@ const Register = () => {
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold mb-4">Join the Competition</h1>
-          <p className="text-muted-foreground">Complete your registration in {steps.length} steps</p>
+          <p className="text-muted-foreground">Complete your registration in {steps.filter(s => s.id !== 3 || !role).length} steps</p>
         </div>
 
         <div className="relative mb-8 pb-10">
           <div className="flex justify-between relative z-10">
-            {steps.map(s => (
+            {steps.filter(s => s.id !== 3 || !role).map(s => (
               <div key={s.id} className="flex flex-col items-center">
-                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center transition-colors", currentStep >= s.id ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
+                <div className={cn("w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-sm", currentStep >= s.id ? "bg-primary text-white" : "bg-muted text-muted-foreground")}>
                   {currentStep > s.id ? <Check className="w-5 h-5" /> : <s.icon className="w-5 h-5" />}
                 </div>
                 <span className="text-[10px] sm:text-xs mt-2 font-medium">{s.title}</span>
@@ -421,7 +427,10 @@ const Register = () => {
             ))}
           </div>
           <div className="absolute top-5 left-0 right-0 h-0.5 bg-muted -z-0">
-            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }} />
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${((currentStep - 1) / (steps.filter(s => s.id !== 3 || !role).length - 1)) * 100}%` }}
+            />
           </div>
         </div>
 

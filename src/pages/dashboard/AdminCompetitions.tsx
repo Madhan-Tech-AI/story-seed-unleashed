@@ -34,6 +34,8 @@ interface Event {
   results_announced: boolean | null;
   registration_open: boolean | null;
   is_payment_enabled: boolean | null;
+  payment_deadline: string | null;
+  registration_start_date: string | null;
   qr_code_url: string | null;
   voting_open: boolean | null;
   event_type: 'school' | 'college' | 'both' | null;
@@ -205,6 +207,9 @@ const AdminCompetitions = () => {
           end_date: editEvent.end_date,
           is_active: editEvent.is_active,
           is_payment_enabled: editEvent.is_payment_enabled,
+          registration_open: editEvent.registration_open,
+          payment_deadline: editEvent.payment_deadline,
+          registration_start_date: editEvent.registration_start_date,
           qr_code_url: qrCodeUrl,
         })
         .eq('id', editEvent.id);
@@ -357,6 +362,21 @@ const AdminCompetitions = () => {
                                 <Vote className="w-3 h-3" /> Voting open
                               </span>
                             )}
+                            {(() => {
+                              const now = new Date();
+                              const isPayActive = event.is_payment_enabled && (!event.payment_deadline || now < new Date(event.payment_deadline));
+                              const isRegActive = event.registration_open || (event.registration_start_date && now > new Date(event.registration_start_date));
+                              return (
+                                <>
+                                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isPayActive ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500")}>
+                                    Pay: {isPayActive ? 'OPEN' : 'CLOSED'}
+                                  </span>
+                                  <span className={cn("text-[10px] px-1.5 py-0.5 rounded", isRegActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500")}>
+                                    Reg: {isRegActive ? 'OPEN' : 'CLOSED'}
+                                  </span>
+                                </>
+                              )
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -530,6 +550,27 @@ const AdminCompetitions = () => {
                 <label htmlFor="is_active" className="text-sm">Active</label>
               </div>
 
+              <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Payment Deadline</label>
+                  <Input
+                    type="datetime-local"
+                    value={editEvent.payment_deadline ? editEvent.payment_deadline.slice(0, 16) : ''}
+                    onChange={(e) => setEditEvent({ ...editEvent, payment_deadline: e.target.value })}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Portal closes automatically after this.</p>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Registration Opens On</label>
+                  <Input
+                    type="datetime-local"
+                    value={editEvent.registration_start_date ? editEvent.registration_start_date.slice(0, 16) : ''}
+                    onChange={(e) => setEditEvent({ ...editEvent, registration_start_date: e.target.value })}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Submission phase starts after this.</p>
+                </div>
+              </div>
+
               {/* Payment Settings */}
               <div className="border-t pt-4 space-y-4">
                 <div className="flex items-center gap-2">
@@ -550,7 +591,18 @@ const AdminCompetitions = () => {
                     id="is_payment_enabled"
                   />
                   <label htmlFor="is_payment_enabled" className="text-sm font-medium">
-                    Enable Payment for Registration
+                    Manual Payment Portal Override
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editEvent.registration_open || false}
+                    onChange={(e) => setEditEvent({ ...editEvent, registration_open: e.target.checked })}
+                    id="registration_open"
+                  />
+                  <label htmlFor="registration_open" className="text-sm font-medium">
+                    Manual Registration Portal Override
                   </label>
                 </div>
 

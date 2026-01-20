@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Smartphone, QrCode, ArrowRight, Loader2, Check, School, GraduationCap } from 'lucide-react';
+import { Smartphone, QrCode, ArrowRight, Loader2, Check, School, GraduationCap, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -387,8 +387,22 @@ const PaymentPortal = () => {
 
               <div className="bg-primary/5 border border-primary/20 rounded-3xl p-8 space-y-4">
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Your Unique Registration Key</p>
-                <div className="text-5xl font-mono font-bold text-primary tracking-widest select-all">
-                  {uniqueKey}
+                <div className="flex flex-col items-center gap-4">
+                  <div className="text-5xl font-mono font-bold text-primary tracking-widest select-all">
+                    {uniqueKey}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary hover:text-primary/80 hover:bg-primary/5"
+                    onClick={() => {
+                      navigator.clipboard.writeText(uniqueKey);
+                      toast({ title: 'Key Copied!', description: 'Unique key copied to clipboard.' });
+                    }}
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy Key
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">Please save this key safely. You will need it to submit your story once registration opens.</p>
               </div>
