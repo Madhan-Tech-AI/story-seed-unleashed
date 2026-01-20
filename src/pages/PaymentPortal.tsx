@@ -159,6 +159,20 @@ const PaymentPortal = () => {
 
       if (error) throw error;
 
+      // Update profile institution/college if provided
+      if (user.id) {
+        const profileUpdate: any = {};
+        if (personalInfo.role === 'school' && personalInfo.schoolName) {
+          profileUpdate.institution = personalInfo.schoolName;
+        } else if (personalInfo.role === 'college' && personalInfo.collegeName) {
+          profileUpdate.institution = personalInfo.collegeName;
+        }
+
+        if (Object.keys(profileUpdate).length > 0) {
+          await supabase.from('profiles').update(profileUpdate).eq('id', user.id);
+        }
+      }
+
       setUniqueKey(key);
       setStep(3); // Go to success step
 

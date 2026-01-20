@@ -113,6 +113,8 @@ const Register = () => {
     category: string;
     classLevel: string;
     description: string;
+    guardianName: string;
+    guardianPhone: string;
     videoFile: File | null;
     storyPdf: File | null;
   }>({
@@ -120,6 +122,8 @@ const Register = () => {
     category: '',
     classLevel: '',
     description: '',
+    guardianName: '',
+    guardianPhone: '',
     videoFile: null,
     storyPdf: null,
   });
@@ -263,7 +267,7 @@ const Register = () => {
   };
 
   const validateStep4 = () => {
-    const { title, category, classLevel, description } = storyDetails;
+    const { title, category, classLevel, description, guardianName, guardianPhone } = storyDetails;
     const isSchool = role === 'school';
 
     if (!title || !category || !description) {
@@ -271,9 +275,11 @@ const Register = () => {
       return false;
     }
 
-    if (isSchool && !classLevel) {
-      toast({ title: 'Class Level Required', variant: 'destructive' });
-      return false;
+    if (isSchool) {
+      if (!classLevel || !guardianName || !guardianPhone) {
+        toast({ title: 'Missing school details', description: 'Please complete class and guardian info.', variant: 'destructive' });
+        return false;
+      }
     }
 
     return true;
@@ -319,6 +325,18 @@ const Register = () => {
         .eq('unique_key', uniqueKey.toUpperCase());
 
       if (updateError) throw updateError;
+
+      // 1b. Update profile details for school events (guardian info & grade)
+      if (role === 'school' && authenticatedUserId) {
+        await supabase
+          .from('profiles')
+          .update({
+            guardian_name: storyDetails.guardianName,
+            guardian_contact: storyDetails.guardianPhone,
+            grade: storyDetails.classLevel,
+          } as any)
+          .eq('id', authenticatedUserId);
+      }
 
       // 2. Handle File Uploads
       const { data: record } = await supabase
@@ -575,6 +593,14 @@ const Register = () => {
                       <SelectContent>
                         <SelectItem value="fiction">Fiction</SelectItem>
                         <SelectItem value="non-fiction">Non-Fiction</SelectItem>
+                        <SelectItem value="folklore">Folklore</SelectItem>
+                        <SelectItem value="horror">Horror</SelectItem>
+                        <SelectItem value="mythology">Mythology</SelectItem>
+                        <SelectItem value="adventure">Adventure</SelectItem>
+                        <SelectItem value="fable">Fable</SelectItem>
+                        <SelectItem value="science-fiction">Science Fiction</SelectItem>
+                        <SelectItem value="documentary">Non-Fiction / Documentary</SelectItem>
+                        <SelectItem value="others">Others</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -583,11 +609,32 @@ const Register = () => {
                     <textarea className="w-full h-32 p-3 rounded-md border" value={storyDetails.description} onChange={e => setStoryDetails(s => ({ ...s, description: e.target.value }))} />
                   </div>
                   {role === 'school' ? (
-                    <div className="space-y-2">
-                      <Label>Class Level</Label>
-                      <Input value={storyDetails.classLevel} onChange={e => setStoryDetails(s => ({ ...s, classLevel: e.target.value }))} placeholder="e.g. 10th Grade" />
-                      <Label className="mt-4 block">Upload Video</Label>
-                      <Input type="file" onChange={e => setStoryDetails(s => ({ ...s, videoFile: e.target.files?.[0] || null }))} />
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Guardian Name</Label>
+                          <Input value={storyDetails.guardianName} onChange={e => setStoryDetails(s => ({ ...s, guardianName: e.target.value }))} placeholder="Parent/Guardian Name" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Guardian Contact</Label>
+                          <Input value={storyDetails.guardianPhone} onChange={e => setStoryDetails(s => ({ ...s, guardianPhone: e.target.value }))} placeholder="Phone Number" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Class Level</Label>
+                        <Select value={storyDetails.classLevel} onValueChange={v => setStoryDetails(s => ({ ...s, classLevel: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Select Class Level" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Tiny Tales">Tiny Tales (3rd - 5th Grade)</SelectItem>
+                            <SelectItem value="Young Dreamers">Young Dreamers (6th - 8th Grade)</SelectItem>
+                            <SelectItem value="Story Champions">Story Champions (9th - 12th Grade)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Upload Video</Label>
+                        <Input type="file" onChange={e => setStoryDetails(s => ({ ...s, videoFile: e.target.files?.[0] || null }))} />
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-2"><Label>Upload PDF</Label><Input type="file" accept=".pdf" onChange={e => setStoryDetails(s => ({ ...s, storyPdf: e.target.files?.[0] || null }))} /></div>
@@ -606,7 +653,12 @@ const Register = () => {
                     <p><strong>Event:</strong> {events.find(e => e.id === selectedEventId)?.name}</p>
                     <p><strong>Title:</strong> {storyDetails.title}</p>
                     <p><strong>Category:</strong> {storyDetails.category}</p>
-                    {role === 'school' && <p><strong>Class:</strong> {storyDetails.classLevel}</p>}
+                    {role === 'school' && (
+                      <>
+                        <p><strong>Class:</strong> {storyDetails.classLevel}</p>
+                        <p><strong>Guardian:</strong> {storyDetails.guardianName} ({storyDetails.guardianPhone})</p>
+                      </>
+                    )}
                     <p><strong>Key:</strong> {uniqueKey}</p>
                   </div>
                   <div className="flex gap-4">
