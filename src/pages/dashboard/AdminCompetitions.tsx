@@ -211,6 +211,7 @@ const AdminCompetitions = () => {
           registration_open: editEvent.registration_open,
           payment_deadline: editEvent.payment_deadline,
           registration_start_date: editEvent.registration_start_date,
+          registration_fee: editEvent.registration_fee,
           qr_code_url: qrCodeUrl,
         })
         .eq('id', editEvent.id);
