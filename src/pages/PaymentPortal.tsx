@@ -104,7 +104,8 @@ const PaymentPortal = () => {
           email: user.email,
           phone: phone,
           // Dummy values for NOT NULL fields that will be updated in Register.tsx
-          age: 0,
+          // Age must be > 0 to pass 'registrations_age_check' constraint
+          age: 18,
           category: 'Pending',
           city: 'Pending',
           story_title: 'Pending',
