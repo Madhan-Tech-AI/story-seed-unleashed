@@ -28,9 +28,8 @@ const steps = [
   { id: 1, title: 'Verification', icon: ShieldCheck },
   { id: 2, title: 'Unique Key', icon: ShieldCheck },
   { id: 3, title: 'Select Role', icon: School },
-  { id: 4, title: 'Personal Info', icon: User },
-  { id: 5, title: 'Story Details', icon: FileText },
-  { id: 6, title: 'Review & Submit', icon: Check },
+  { id: 4, title: 'Story Details', icon: FileText },
+  { id: 5, title: 'Review & Submit', icon: Check },
 ];
 
 const CLG_WEBHOOK_URL = 'https://kamalesh-tech-aiii.app.n8n.cloud/webhook/clg_registration';
@@ -177,24 +176,45 @@ const Register = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleGoogleSignIn = async () => {
-    if (!selectedEventId) {
-      toast({ title: 'Event Required', description: 'Please select an event first.', variant: 'destructive' });
-      return;
-    }
-    setIsSigningIn(true);
-    try {
-      const redirectUrl = `${window.location.origin}/register?eventId=${selectedEventId}`;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: redirectUrl },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      toast({ title: 'Sign In Failed', description: error.message, variant: 'destructive' });
-      setIsSigningIn(false);
-    }
-  };
+  useEffect(() => {
+    const autoFetchKey = async () => {
+      if (authenticatedUserId && selectedEventId && !uniqueKey && currentStep === 2) {
+        // Try to fetch from registrations
+        const { data: reg } = await supabase
+          .from('registrations')
+          .select('unique_key, payment_status')
+          .eq('user_id', authenticatedUserId)
+          .eq('event_id', selectedEventId)
+          .eq('payment_status', 'paid')
+          .maybeSingle();
+
+        if (reg) {
+          setUniqueKey(reg.unique_key);
+          setIsKeyVerified(true);
+          setRole('school');
+          toast({ title: 'Key Found!', description: 'Your paid registration key has been automatically fetched.', variant: 'success' });
+          return;
+        }
+
+        // Try to fetch from clg_registrations
+        const { data: clgReg } = await supabase
+          .from('clg_registrations')
+          .select('unique_key, payment_status')
+          .eq('user_id', authenticatedUserId)
+          .eq('event_id', selectedEventId)
+          .eq('payment_status', 'paid')
+          .maybeSingle();
+
+        if (clgReg) {
+          setUniqueKey(clgReg.unique_key);
+          setIsKeyVerified(true);
+          setRole('college');
+          toast({ title: 'Key Found!', description: 'Your paid registration key has been automatically fetched.', variant: 'success' });
+        }
+      }
+    };
+    autoFetchKey();
+  }, [authenticatedUserId, selectedEventId, currentStep]);
 
   const validateStep1 = () => {
     if (emailStep !== 'verified') {
@@ -210,8 +230,12 @@ const Register = () => {
       return false;
     }
 
-    const { data: reg } = await supabase.from('registrations').select('event_id, payment_status, role').eq('unique_key', uniqueKey.toUpperCase()).maybeSingle();
-    const { data: clgReg } = await supabase.from('clg_registrations').select('event_id, payment_status').eq('unique_key', uniqueKey.toUpperCase()).maybeSingle();
+    const { data: reg, error: regError } = await supabase.from('registrations').select('event_id, payment_status').eq('unique_key', uniqueKey.toUpperCase()).maybeSingle();
+    const { data: clgReg, error: clgError } = await supabase.from('clg_registrations').select('event_id, payment_status').eq('unique_key', uniqueKey.toUpperCase()).maybeSingle();
+
+    if (regError || clgError) {
+      console.error('Key verification error', regError || clgError);
+    }
 
     const existingKey = reg || clgReg;
     if (!existingKey) {
@@ -233,21 +257,20 @@ const Register = () => {
     return true;
   };
 
-  const validateStep3 = () => {
-    const { firstName, lastName, email, age, city } = personalInfo;
-    if (!firstName || !lastName || !email || !age || !city) {
-      toast({ title: 'Missing information', description: 'Please fill all fields.', variant: 'destructive' });
-      return false;
-    }
-    return true;
-  };
-
   const validateStep4 = () => {
     const { title, category, classLevel, description } = storyDetails;
-    if (!title || !category || !classLevel || !description) {
+    const isSchool = role === 'school';
+
+    if (!title || !category || !description) {
       toast({ title: 'Missing details', description: 'Please complete all fields.', variant: 'destructive' });
       return false;
     }
+
+    if (isSchool && !classLevel) {
+      toast({ title: 'Class Level Required', variant: 'destructive' });
+      return false;
+    }
+
     return true;
   };
 
@@ -272,62 +295,90 @@ const Register = () => {
   const submitRegistration = async () => {
     setIsSubmitting(true);
     try {
-      const phoneDigits = personalInfo.phone.replace(/\D/g, '');
-      if (role === 'college') {
-        let pdfUrl = null;
-        if (storyDetails.storyPdf) {
-          const fileName = `${authenticatedUserId}-${Date.now()}.pdf`;
-          const { error } = await supabase.storage.from('college-story-pdfs').upload(fileName, storyDetails.storyPdf);
-          if (!error) pdfUrl = supabase.storage.from('college-story-pdfs').getPublicUrl(fileName).data.publicUrl;
-        }
-        await supabase.from('clg_registrations').update({
-          first_name: personalInfo.firstName,
-          last_name: personalInfo.lastName,
-          email: personalInfo.email.toLowerCase(),
-          phone: phoneDigits,
-          age: parseInt(personalInfo.age),
-          city: personalInfo.city,
-          college_name: personalInfo.collegeName,
-          degree: personalInfo.degree,
-          branch: personalInfo.branch,
-          story_title: storyDetails.title,
-          category: storyDetails.category,
-          story_description: storyDetails.description,
-          pdf_url: pdfUrl,
-        }).eq('unique_key', uniqueKey.toUpperCase());
-      } else {
-        const { data } = await supabase.from('registrations').select('id').eq('unique_key', uniqueKey.toUpperCase()).single();
-        await supabase.from('registrations').update({
-          first_name: personalInfo.firstName,
-          last_name: personalInfo.lastName,
-          email: personalInfo.email.toLowerCase(),
-          phone: phoneDigits,
-          age: parseInt(personalInfo.age),
-          city: personalInfo.city,
-          story_title: storyDetails.title,
-          category: storyDetails.category,
-          class_level: storyDetails.classLevel,
-          story_description: storyDetails.description,
-        }).eq('unique_key', uniqueKey.toUpperCase());
-        if (storyDetails.videoFile && data?.id) await uploadVideoToSupabase(storyDetails.videoFile, data.id);
+      const tableName = role === 'college' ? 'clg_registrations' : 'registrations';
+
+      const updateData: any = {
+        story_title: storyDetails.title,
+        category: storyDetails.category,
+        story_description: storyDetails.description,
+      };
+
+      if (role === 'school') {
+        updateData.class_level = storyDetails.classLevel;
       }
+
+      // 1. Update basic details
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update(updateData)
+        .eq('unique_key', uniqueKey.toUpperCase());
+
+      if (updateError) throw updateError;
+
+      // 2. Handle File Uploads
+      const { data: record } = await supabase
+        .from(tableName)
+        .select('id')
+        .eq('unique_key', uniqueKey.toUpperCase())
+        .single();
+
+      if (record?.id) {
+        if (role === 'school' && storyDetails.videoFile) {
+          await uploadVideoToSupabase(storyDetails.videoFile, record.id);
+        } else if (role === 'college' && storyDetails.storyPdf) {
+          const fileName = `${record.id}-${Date.now()}.pdf`;
+          const { error: uploadError } = await supabase.storage.from('college-story-pdfs').upload(fileName, storyDetails.storyPdf);
+          if (!uploadError) {
+            const pdfUrl = supabase.storage.from('college-story-pdfs').getPublicUrl(fileName).data.publicUrl;
+            await supabase.from('clg_registrations').update({ pdf_url: pdfUrl }).eq('id', record.id);
+          }
+        }
+      }
+
       setIsComplete(true);
+      toast({ title: 'Registration Complete!', description: 'Your story has been submitted successfully.', variant: 'success' });
       return true;
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to submit.', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to submit.', variant: 'destructive' });
       return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    if (!selectedEventId) {
+      toast({ title: 'Event Required', description: 'Please select an event first.', variant: 'destructive' });
+      return;
+    }
+    setIsSigningIn(true);
+    try {
+      const redirectUrl = `${window.location.origin}/register?eventId=${selectedEventId}`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectUrl },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast({ title: 'Sign In Failed', description: error.message, variant: 'destructive' });
+      setIsSigningIn(false);
+    }
+  };
+
   const handleNext = async () => {
     if (currentStep === 1) { if (validateStep1()) setCurrentStep(2); return; }
-    if (currentStep === 2) { if (await validateStep2()) { const event = events.find(e => e.id === selectedEventId); if (event?.event_type === 'school' || event?.event_type === 'college') setCurrentStep(4); else setCurrentStep(3); } return; }
+    if (currentStep === 2) {
+      if (await validateStep2()) {
+        const event = events.find(e => e.id === selectedEventId);
+        if (event?.event_type === 'school' || event?.event_type === 'college') setCurrentStep(4);
+        else setCurrentStep(3);
+      }
+      return;
+    }
     if (currentStep === 3) { if (role) setCurrentStep(4); return; }
-    if (currentStep === 4) { if (validateStep3()) setCurrentStep(5); return; }
-    if (currentStep === 5) { if (validateStep4()) setCurrentStep(6); return; }
-    if (currentStep === 6) await submitRegistration();
+    if (currentStep === 4) { if (validateStep4()) setCurrentStep(5); return; }
+    if (currentStep === 5) await submitRegistration();
   };
 
   const handlePrev = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
@@ -463,30 +514,6 @@ const Register = () => {
 
           {currentStep === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-              <h2 className="text-2xl font-bold">Personal Info</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>First Name</Label><Input value={personalInfo.firstName} onChange={e => setPersonalInfo(p => ({ ...p, firstName: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Last Name</Label><Input value={personalInfo.lastName} onChange={e => setPersonalInfo(p => ({ ...p, lastName: e.target.value }))} /></div>
-              </div>
-              <div className="space-y-2"><Label>Phone Number</Label><Input value={personalInfo.phone} onChange={e => setPersonalInfo(p => ({ ...p, phone: e.target.value }))} placeholder="+91..." /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Age</Label><Input type="number" value={personalInfo.age} onChange={e => setPersonalInfo(p => ({ ...p, age: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>City</Label><Input value={personalInfo.city} onChange={e => setPersonalInfo(p => ({ ...p, city: e.target.value }))} /></div>
-              </div>
-              {role === 'school' ? (
-                <div className="space-y-2"><Label>School Name</Label><Input value={personalInfo.schoolName} onChange={e => setPersonalInfo(p => ({ ...p, schoolName: e.target.value }))} /></div>
-              ) : (
-                <div className="space-y-2"><Label>College Name</Label><Input value={personalInfo.collegeName} onChange={e => setPersonalInfo(p => ({ ...p, collegeName: e.target.value }))} /></div>
-              )}
-              <div className="flex gap-4">
-                <Button onClick={handlePrev} variant="ghost">Back</Button>
-                <Button onClick={handleNext} className="flex-1 h-12">Next</Button>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 5 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               <h2 className="text-2xl font-bold">Story Details</h2>
               <div className="space-y-2"><Label>Story Title</Label><Input value={storyDetails.title} onChange={e => setStoryDetails(s => ({ ...s, title: e.target.value }))} /></div>
               <div className="space-y-2">
@@ -504,28 +531,34 @@ const Register = () => {
                 <textarea className="w-full h-32 p-3 rounded-md border" value={storyDetails.description} onChange={e => setStoryDetails(s => ({ ...s, description: e.target.value }))} />
               </div>
               {role === 'school' ? (
-                <div className="space-y-2"><Label>Upload Video</Label><Input type="file" onChange={e => setStoryDetails(s => ({ ...s, videoFile: e.target.files?.[0] || null }))} /></div>
+                <div className="space-y-2">
+                  <Label>Class Level</Label>
+                  <Input value={storyDetails.classLevel} onChange={e => setStoryDetails(s => ({ ...s, classLevel: e.target.value }))} placeholder="e.g. 10th Grade" />
+                  <Label className="mt-4 block">Upload Video</Label>
+                  <Input type="file" onChange={e => setStoryDetails(s => ({ ...s, videoFile: e.target.files?.[0] || null }))} />
+                </div>
               ) : (
                 <div className="space-y-2"><Label>Upload PDF</Label><Input type="file" accept=".pdf" onChange={e => setStoryDetails(s => ({ ...s, storyPdf: e.target.files?.[0] || null }))} /></div>
               )}
               <div className="flex gap-4">
-                <Button onClick={handlePrev} variant="ghost">Back</Button>
+                <Button onClick={handlePrev} variant="outline">Back</Button>
                 <Button onClick={handleNext} className="flex-1 h-12">Next</Button>
               </div>
             </div>
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 5 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
               <h2 className="text-2xl font-bold text-center">Review & Submit</h2>
               <div className="bg-muted p-4 rounded-xl space-y-2 text-sm italic">
                 <p><strong>Event:</strong> {events.find(e => e.id === selectedEventId)?.name}</p>
-                <p><strong>Role:</strong> {role} student</p>
-                <p><strong>Name:</strong> {personalInfo.firstName} {personalInfo.lastName}</p>
-                <p><strong>Story:</strong> {storyDetails.title}</p>
+                <p><strong>Title:</strong> {storyDetails.title}</p>
+                <p><strong>Category:</strong> {storyDetails.category}</p>
+                {role === 'school' && <p><strong>Class:</strong> {storyDetails.classLevel}</p>}
+                <p><strong>Key:</strong> {uniqueKey}</p>
               </div>
               <div className="flex gap-4">
-                <Button onClick={handlePrev} variant="ghost">Back</Button>
+                <Button onClick={handlePrev} variant="outline">Back</Button>
                 <Button onClick={handleNext} disabled={isSubmitting} className="flex-1 h-12">
                   {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Check className="mr-2" />}
                   Submit Registration
