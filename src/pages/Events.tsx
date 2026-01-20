@@ -120,13 +120,21 @@ const Events = () => {
   useEffect(() => {
     fetchEvents();
 
-    const channel = supabase
-      .channel('events-page')
+    // Listen for events, registrations, and session changes
+    const eventsChannel = supabase
+      .channel('events-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEvents())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registrations' }, () => fetchEvents())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clg_registrations' }, () => fetchEvents())
       .subscribe();
 
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchEvents();
+    });
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(eventsChannel);
+      authSubscription.unsubscribe();
     };
   }, []);
 
