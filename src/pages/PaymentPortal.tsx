@@ -21,10 +21,11 @@ const PaymentPortal = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
-  
+
   const [paymentMethod, setPaymentMethod] = useState<'upi' | 'qr'>('upi');
   const [transactionId, setTransactionId] = useState('');
   const [senderName, setSenderName] = useState('');
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
     const checkAuthAndFetchEvent = async () => {
@@ -35,7 +36,7 @@ const PaymentPortal = () => {
           description: 'Please log in to participate in events.',
           variant: 'destructive',
         });
-        navigate('/user');
+        navigate(`/user?redirect=/pay-event/${eventId}`);
         return;
       }
       setUser(session.user);
@@ -65,10 +66,10 @@ const PaymentPortal = () => {
   }, [eventId, navigate, toast]);
 
   const handlePayment = async () => {
-    if (!transactionId || !senderName) {
+    if (!transactionId || !senderName || !phone) {
       toast({
         title: 'Missing Information',
-        description: 'Please enter transaction ID and sender name.',
+        description: 'Please enter transaction ID, sender name, and phone number.',
         variant: 'destructive',
       });
       return;
@@ -78,10 +79,12 @@ const PaymentPortal = () => {
     const uniqueKey = generateUniqueKey();
 
     try {
-      // Determine which table to use based on event_type (default to registrations if both)
-      // For now, let's create a stub in BOTH if it's 'both', or specific if otherwise.
-      // Actually, it's better to just use 'registrations' as the primary for payment stubs.
-      const tableName = event.event_type === 'college' ? 'clg_registrations' : 'registrations';
+      // Determine which table to use based on event_type
+      const tableName: 'registrations' | 'clg_registrations' =
+        event.event_type === 'college' ? 'clg_registrations' : 'registrations';
+
+      const firstName = senderName.split(' ')[0] || user.user_metadata?.full_name?.split(' ')[0] || 'User';
+      const lastName = senderName.split(' ').slice(1).join(' ') || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '';
 
       const { error } = await supabase
         .from(tableName)
@@ -96,11 +99,17 @@ const PaymentPortal = () => {
             method: paymentMethod,
             timestamp: new Date().toISOString(),
           },
-          // We need some placeholder values for mandatory fields if any
-          first_name: senderName.split(' ')[0] || 'User',
-          last_name: senderName.split(' ')[1] || '',
+          first_name: firstName,
+          last_name: lastName,
           email: user.email,
-        });
+          phone: phone,
+          // Dummy values for NOT NULL fields that will be updated in Register.tsx
+          age: 0,
+          category: 'Pending',
+          city: 'Pending',
+          story_title: 'Pending',
+          story_description: 'Pending',
+        } as any); // Use 'as any' to bypass strict row typing if still out of sync
 
       if (error) throw error;
 
@@ -145,18 +154,16 @@ const PaymentPortal = () => {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => setPaymentMethod('upi')}
-                className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                  paymentMethod === 'upi' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
-                }`}
+                className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'upi' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                  }`}
               >
                 <Smartphone className="w-6 h-6" />
                 <span className="font-semibold">UPI App</span>
               </button>
               <button
                 onClick={() => setPaymentMethod('qr')}
-                className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
-                  paymentMethod === 'qr' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
-                }`}
+                className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${paymentMethod === 'qr' ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/50'
+                  }`}
               >
                 <QrCode className="w-6 h-6" />
                 <span className="font-semibold">Scan & Pay</span>
@@ -178,6 +185,15 @@ const PaymentPortal = () => {
                   placeholder="Enter name"
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  placeholder="Enter 10-digit number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
               <div className="space-y-2">

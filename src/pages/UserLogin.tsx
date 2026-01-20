@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Mail, ArrowRight, Loader2, CheckCircle, ArrowLeft } from 'lucide-react'; // Changed Phone to Mail
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,10 @@ import logo from '@/assets/logo.png';
 
 const UserLogin = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+
+  const redirectPath = searchParams.get('redirect');
 
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -20,7 +23,7 @@ const UserLogin = () => {
     const checkExistingSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        // User already logged in, redirect to dashboard
+        // User already logged in, redirect to dashboard or redirectPath
         localStorage.setItem('story_seed_user_id', session.user.id);
         if (session.user.email) {
           localStorage.setItem('story_seed_user_email', session.user.email);
@@ -53,20 +56,28 @@ const UserLogin = () => {
         // Also set verified flag to true to ensure dashboard access
         localStorage.setItem('story_seed_verified', 'true');
 
-        navigate('/dashboard');
+        if (redirectPath) {
+          navigate(redirectPath);
+        } else {
+          navigate('/dashboard');
+        }
       }
       setCheckingSession(false);
     };
     checkExistingSession();
-  }, [navigate]);
+  }, [navigate, redirectPath]);
 
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     try {
+      const redirectTo = redirectPath
+        ? `${window.location.origin}/user?redirect=${encodeURIComponent(redirectPath)}`
+        : `${window.location.origin}/user`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/user`,
+          redirectTo,
         },
       });
       if (error) throw error;
@@ -149,15 +160,10 @@ const UserLogin = () => {
               )}
             </Button>
 
-            <div className="text-center pt-8 border-t border-border">
-              <p className="text-sm text-muted-foreground mb-4">
-                Need to register for an event?
+            <div className="pt-4 text-center">
+              <p className="text-sm text-muted-foreground italic">
+                Sign in to manage your registrations and track your progress.
               </p>
-              <Link to="/register">
-                <Button variant="outline" className="w-full py-6 rounded-2xl border-2 hover:bg-muted transition-all">
-                  Browse Events & Register
-                </Button>
-              </Link>
             </div>
           </div>
         </div>
