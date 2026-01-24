@@ -312,8 +312,8 @@ const About = () => {
         </div>
       </section>
 
-      {/* Team Section */}
-      <section className="py-12 sm:py-16 bg-gradient-to-br from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] relative overflow-hidden">
+      {/* Team Section - HIDDEN (remove 'hidden' class to show) */}
+      <section className="hidden py-12 sm:py-16 bg-gradient-to-br from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.15)_1px,transparent_0)] [background-size:40px_40px]" />
         </div>
