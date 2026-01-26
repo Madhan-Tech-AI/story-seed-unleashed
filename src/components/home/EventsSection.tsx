@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, ArrowRight, Star, TrendingUp, Clock, Vote, Check } from 'lucide-react';
+import { Star, TrendingUp, Clock, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { EventCard } from '../events/EventCard';
 
 const eventCategories = ['Live', 'All', 'Upcoming'];
 
@@ -203,131 +204,7 @@ export const EventsSection = () => {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.slice(0, 6).map((event, index) => (
-              <div
-                key={event.id}
-                className="group relative animate-fade-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                {/* Glass-morphism Card */}
-                <div className="relative backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10 rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 hover:scale-[1.02]">
-                  {/* Background Image with Overlay */}
-                  <div className="relative aspect-[16/10] overflow-hidden">
-                    <img
-                      src={event.banner_image || 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80'}
-                      alt={event.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-
-                    {/* Status Badge */}
-                    <div className="absolute top-4 left-4">
-                      <span
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm',
-                          event.status === 'live'
-                            ? 'bg-red-500/90 text-white'
-                            : event.status === 'upcoming'
-                              ? 'bg-blue-500/90 text-white'
-                              : 'bg-gray-500/90 text-white'
-                        )}
-                      >
-                        {event.status === 'live' ? '🔴 Live Now' : event.status === 'upcoming' ? 'Coming Soon' : 'Ended'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-6 space-y-4">
-                    <h3 className="font-display text-xl font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                      {event.name}
-                    </h3>
-                    <p className="text-muted-foreground text-sm line-clamp-3">
-                      {event.description || 'Join this exciting storytelling competition!'}
-                    </p>
-
-                    {/* Meta */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>{formatDateRange(event.start_date, event.end_date).split(' - ')[0]}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4" />
-                        <span>{event.participantCount}+ participants</span>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                      {(() => {
-                        const now = new Date();
-                        const isPayEnabled = event.is_payment_enabled &&
-                          (!event.payment_deadline || now < new Date(event.payment_deadline));
-
-                        const isRegEnabled = event.registration_open ||
-                          (event.registration_start_date && now > new Date(event.registration_start_date));
-
-                        if (event.userStatus === 'registered') {
-                          return (
-                            <Button variant="outline" className="flex-1 bg-green-50 text-green-600 border-green-200 cursor-default hover:bg-green-50">
-                              <Check className="w-4 h-4 mr-2" /> Registration Complete
-                            </Button>
-                          );
-                        }
-
-                        if (event.userStatus === 'paid') {
-                          if (isRegEnabled) {
-                            return (
-                              <Link to={`/register?eventId=${event.id}`} className="flex-1">
-                                <Button variant="hero" className="w-full group bg-gradient-to-r from-green-600 to-emerald-600 hover:opacity-90">
-                                  Verify & Submit Story
-                                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                                </Button>
-                              </Link>
-                            );
-                          }
-                          return (
-                            <Button variant="outline" className="flex-1 bg-blue-50 text-blue-600 border-blue-200 cursor-default">
-                              Paid - Awaiting Submission Phase
-                            </Button>
-                          );
-                        }
-
-                        if (isPayEnabled) {
-                          return (
-                            <Link to={`/pay-event/${event.id}`} className="flex-1">
-                              <Button variant="hero" className="w-full group bg-gradient-to-r from-[#9B1B1B] via-[#FF6B35] to-[#D4AF37] hover:opacity-90">
-                                Participate & Pay
-                                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                              </Button>
-                            </Link>
-                          );
-                        }
-
-                        if (isRegEnabled) {
-                          return (
-                            <Button variant="outline" className="flex-1 opacity-50 cursor-not-allowed" disabled>
-                              Payment Closed (Registration Active)
-                            </Button>
-                          );
-                        }
-
-                        return (
-                          <Button variant="outline" className="flex-1 opacity-50 cursor-not-allowed" disabled>
-                            Registration Closed
-                          </Button>
-                        );
-                      })()}
-                      <Link to={`/voting/${event.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full group bg-white text-[#9B1B1B] hover:bg-[#9B1B1B] hover:text-white border-2 border-[#9B1B1B] transition-all duration-300 font-semibold">
-                          <Vote className="w-4 h-4 mr-2" />
-                          Vote
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <EventCard key={event.id} event={event} index={index} />
             ))}
           </div>
         )}
