@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Bell, Sparkles } from 'lucide-react';
+import { X, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const announcements = [
@@ -20,16 +20,11 @@ export const AnnouncementBanner = () => {
     <div className="fixed top-0 left-0 right-0 z-[60] bg-gradient-hero text-primary-foreground relative overflow-hidden">
       <div className="absolute inset-0 shimmer" />
       <div className="container mx-auto px-4 max-w-7xl py-2 flex items-center justify-center gap-4 relative">
-        <Sparkles className="w-4 h-4 animate-pulse" />
-        <p className="text-sm font-medium text-center truncate">
+
+        <p className="text-xs sm:text-sm font-medium text-center">
           {currentAnnouncement.text}
         </p>
-        <button
-          onClick={() => setCurrentIndex((prev) => (prev + 1) % announcements.length)}
-          className="text-primary-foreground/80 hover:text-primary-foreground text-xs underline ml-2"
-        >
-          Next
-        </button>
+
         <button
           onClick={() => setIsVisible(false)}
           className="absolute right-4 p-1 hover:bg-primary-foreground/20 rounded transition-colors"

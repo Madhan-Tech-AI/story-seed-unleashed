@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, LogOut, User, Search, Calendar, Sparkles, Loader2 } from 'lucide-react';
+import { Menu, X, LogOut, User, Search, Calendar, Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -233,13 +233,11 @@ export const Navbar = () => {
           >
             <div className="absolute inset-0 shimmer"></div>
             <div className="container mx-auto px-4 max-w-7xl py-2 flex items-center justify-center gap-4 relative">
-              <Sparkles className="w-4 h-4 animate-pulse" />
-              <p className="text-sm font-medium text-center truncate">
+
+              <p className="text-xs sm:text-sm font-medium text-center">
                 🎉 Summer Storytelling Championship 2025 is now LIVE! Register today.
               </p>
-              <button className="text-primary-foreground/80 hover:text-primary-foreground text-xs underline ml-2">
-                Next
-              </button>
+
               <button
                 onClick={() => setIsBannerVisible(false)}
                 className="absolute right-4 p-1 hover:bg-primary-foreground/20 rounded transition-colors"
@@ -405,7 +403,7 @@ export const Navbar = () => {
                     className="w-full max-w-[340px]"
                   />
                 </div>
-                {isAuthenticated && user && (role === 'admin' || role === 'judge') ? (
+                {isAuthenticated && user && (role === 'admin' || role === 'judge') && (
                   <>
                     <div className="flex items-center gap-3 px-4 py-2">
                       <Avatar className="w-10 h-10">
@@ -430,20 +428,6 @@ export const Navbar = () => {
                       Logout
                     </Button>
                   </>
-                ) : (
-                  <Button
-                    variant="default"
-                    className="w-full"
-                    onClick={handleGoogleSignIn}
-                    disabled={isGoogleSigningIn}
-                  >
-                    {isGoogleSigningIn ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <User className="w-4 h-4 mr-2" />
-                    )}
-                    {isGoogleSigningIn ? 'Signing in...' : 'Sign in with Google'}
-                  </Button>
                 )}
               </div>
             </div>
