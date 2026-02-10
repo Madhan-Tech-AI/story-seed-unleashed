@@ -105,6 +105,45 @@ serve(async (req: Request) => {
         const { action, amount, currency = 'INR', customer_id, order_id } = await req.json();
         const orgId = Deno.env.get('ZOHO_USER_ID');
 
+        if (action === 'create-link') {
+            const accessToken = await getZohoAccessToken();
+            const linkUrl = `https://payments.zoho.in/api/v1/paymentlinks`;
+
+            const payload = {
+                amount: parseFloat(amount),
+                currency_code: currency,
+                organization_id: orgId,
+                email: 'customer@storyseed.in',
+                return_url: `${req.headers.get('origin')}/pay-event/${order_id}?status=success`,
+                reference_id: `${order_id}_${Date.now()}`,
+                description: `Payment for Event ${order_id}`
+            };
+
+            const response = await fetch(linkUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const linkData = await response.json();
+
+            if (!response.ok) {
+                console.error('Zoho API Error (Link):', linkData);
+                return new Response(
+                    JSON.stringify({ error: linkData.message || 'Failed to create payment link' }),
+                    { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                )
+            }
+
+            return new Response(
+                JSON.stringify(linkData),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
+
         if (action === 'create-session') {
             const accessToken = await getZohoAccessToken();
 

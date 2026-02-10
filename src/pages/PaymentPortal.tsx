@@ -94,6 +94,23 @@ const PaymentPortal = () => {
     checkAuthAndFetchEvent();
   }, [eventId, navigate, toast]);
 
+  // Handle return from Zoho Payment Link
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const paymentId = searchParams.get('payment_id');
+
+    if (status === 'success' && event && !submitting && step === 2) {
+      const finalizePayment = async () => {
+        setSubmitting(true);
+        await submitPaymentToDB({
+          paymentId: paymentId || 'hosted_link',
+          method: 'zoho_link'
+        });
+      };
+      finalizePayment();
+    }
+  }, [searchParams, event, step]);
+
   const validatePersonalStep = () => {
     const { firstName, lastName, phone, age, city, role } = personalInfo;
     if (!firstName || !lastName || !phone || !age || !city || !role) {
@@ -135,49 +152,23 @@ const PaymentPortal = () => {
         return;
       }
 
-      // 2. Create Payment Session via Edge Function
-      const { data: sessionData, error: sessionError } = await supabase.functions.invoke('zoho-payment-handler', {
+      // 2. Create Payment Link via Edge Function
+      const { data, error } = await supabase.functions.invoke('zoho-payment-handler', {
         body: {
-          action: 'create-session',
+          action: 'create-link',
           amount: event.registration_fee,
           customer_id: authSession.user.id,
           order_id: eventId
         },
       });
 
-      if (sessionError || !sessionData?.payment_session_id) {
-        console.error('Session creation error:', sessionError);
-        throw new Error(sessionError?.message || 'Failed to create payment session');
+      if (error || !data?.payment_url) {
+        console.error('Link creation error:', error);
+        throw new Error(error?.message || 'Failed to create payment link');
       }
 
-      // 3. Initialize Zoho Payments Checkout
-      // @ts-ignore
-      const zpayments = new window.ZPayments({
-        payment_session_id: sessionData.payment_session_id,
-        account_id: import.meta.env.VITE_ZOHO_PAYMENTS_ACCOUNT_ID,
-        domain: import.meta.env.VITE_ZOHO_PAYMENTS_DOMAIN || 'IN',
-      });
-
-      zpayments.checkout({
-        container: '#zoho-payment-container', // Could be a modal or embedded
-        onSuccess: async (response: any) => {
-          console.log('Payment Successful:', response);
-          await submitPaymentToDB({
-            paymentId: response.payment_id,
-            sessionId: sessionData.payment_session_id,
-            amount: event.registration_fee,
-            method: 'zoho'
-          });
-        },
-        onFailure: (error: any) => {
-          console.error('Payment Failed:', error);
-          toast({ title: 'Payment Failed', description: error.message || 'Transaction failed', variant: 'destructive' });
-          setSubmitting(false);
-        },
-        onClose: () => {
-          setSubmitting(false);
-        }
-      });
+      // 3. Redirect to Zoho Hosted Page
+      window.location.href = data.payment_url;
 
     } catch (error: any) {
       console.error('Payment Error:', error);
@@ -204,12 +195,12 @@ const PaymentPortal = () => {
         phone: personalInfo.phone,
         age: parseInt(personalInfo.age),
         city: personalInfo.city,
-        story_title: null, // Will be filled when user submits story
-        category: null, // Will be filled when user submits story
-        story_description: null, // Will be filled when user submits story
-        payment_status: 'paid', // Update status
+        story_title: null,
+        category: null,
+        story_description: null,
+        payment_status: 'paid',
         unique_key: key,
-        payment_details: paymentDetails, // Store full Zoho payment details
+        payment_details: paymentDetails,
       };
 
       if (personalInfo.role === 'school') {
